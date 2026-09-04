@@ -90,6 +90,14 @@ db_migrate() {
   chmod 0600 "$(db_path)" 2>/dev/null || true
 }
 
+# db_audit_log ACTION ACTOR [DETAILS_JSON] — append one row to audit_logs.
+# DETAILS_JSON is caller-supplied (build it with `jq -nc`, not manual
+# string concatenation) — this function only handles the SQL-quoting side.
+db_audit_log() {
+  local action="$1" actor="$2" details="${3:-}"
+  db_exec "INSERT INTO audit_logs (action, actor, details) VALUES ('$(sql_quote "${action}")', '$(sql_quote "${actor}")', '$(sql_quote "${details}")');"
+}
+
 # db_schema_version — highest applied migration version, or empty if none.
 db_schema_version() {
   db_query "SELECT MAX(version) FROM schema_migrations;" 2>/dev/null || true

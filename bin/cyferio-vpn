@@ -32,7 +32,7 @@ fi
 # use utils.sh (die, is_command_available); network.sh/cloud.sh share the
 # checks accumulator (cloud.sh calls network.sh's check_add); backends/
 # openvpn.sh uses utils/config/logger; install.sh composes all of them.
-for module in core logger utils config database network cloud backends/openvpn install; do
+for module in core logger utils config database network cloud backends/openvpn certs install; do
   # shellcheck source=/dev/null
   source "${LIB_DIR}/${module}.sh"
 done

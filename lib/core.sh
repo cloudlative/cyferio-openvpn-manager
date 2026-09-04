@@ -43,6 +43,7 @@ Usage:
 Commands:
   install [--force]              Install and configure OpenVPN
   uninstall [--force]            Remove OpenVPN and all Cyferio state
+  cert <create|revoke|list|status> ...   Manage certificates directly
   user <add|remove|enable|disable|get|list> ...
   profile <export|regenerate> USERNAME
   mac <add|remove|update|list|report> ...
@@ -112,6 +113,10 @@ core_dispatch() {
     network)
       shift
       cmd_network "$@"
+      ;;
+    cert)
+      shift
+      cmd_cert "$@"
       ;;
     user|profile|mac|status|audit|diagnose|backup|restore)
       echo "cyferio-vpn: '${cmd}' is not implemented yet (coming in a later phase)" >&2

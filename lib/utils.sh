@@ -102,6 +102,25 @@ netmask_to_prefix() {
   echo "${bits}"
 }
 
+# current_actor — the invoking human, for audit_logs.actor. Prefers
+# $SUDO_USER (set when running via `sudo`) over the effective/root user, so
+# audit entries say who ran the command, not just "root".
+current_actor() {
+  echo "${SUDO_USER:-$(id -un)}"
+}
+
+# asn1_to_iso ASN1_TIME — converts EasyRSA/OpenSSL's index.txt date format
+# (YYMMDDHHMMSSZ, e.g. 260904120000Z) to ISO 8601 (2026-09-04T12:00:00Z).
+# Done with plain substring extraction (no `date -d` parsing) so it's
+# locale- and GNU/BSD-date-independent. Assumes 21st century, fine for
+# this project's lifetime.
+asn1_to_iso() {
+  local t="$1"
+  [[ ${#t} -ge 12 ]] || { echo "${t}"; return 0; }
+  printf '20%s-%s-%sT%s:%s:%sZ\n' \
+    "${t:0:2}" "${t:2:2}" "${t:4:2}" "${t:6:2}" "${t:8:2}" "${t:10:2}"
+}
+
 # sql_quote VALUE — escapes single quotes for embedding into a SQL literal.
 # Callers should still validate input with validate_username/validate_mac
 # etc. first — this is defense in depth, not the primary control (see

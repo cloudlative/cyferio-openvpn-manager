@@ -42,12 +42,35 @@ _ovpn_easyrsa_bin() {
 }
 
 # _ovpn_easyrsa ARGS... — run easyrsa non-interactively against our PKI dir.
+# Deliberately does NOT set EASYRSA_REQ_CN globally: easyrsa3 in batch mode
+# does NOT derive a cert's CN from gen-req's short-name argument — every
+# `gen-req`/`build-ca` call uses EASYRSA_REQ_CN verbatim (falling back to
+# its own built-in placeholder, "ChangeMe", if unset). A single global CN
+# would put the SAME CN on the CA, the server cert, and every client cert.
+# Each call site that issues a cert sets its own CN explicitly via
+# _ovpn_easyrsa_env below.
 _ovpn_easyrsa() {
+  _ovpn_easyrsa_env "$@"
+}
+
+# _ovpn_easyrsa_env [VAR=VALUE ...] -- ARGS... — like _ovpn_easyrsa, but lets
+# the caller pass extra environment for this one invocation — every
+# gen-req/build-ca call uses this to set EASYRSA_REQ_CN to the identity
+# actually being issued. Env assignments must come first and be followed
+# by `--`.
+_ovpn_easyrsa_env() {
+  local -a extra_env=()
+  while [[ "$1" == *=* ]]; do
+    extra_env+=("$1")
+    shift
+  done
+  [[ "${1:-}" == "--" ]] && shift
+
   local bin
   bin="$(_ovpn_easyrsa_bin)" || die "easyrsa executable not found (is the easy-rsa package installed?)" 3
-  EASYRSA_PKI="$(ovpn_pki_dir)" \
-  EASYRSA_BATCH=1 \
-  EASYRSA_REQ_CN="Cyferio-CA" \
+  env "${extra_env[@]}" \
+    EASYRSA_PKI="$(ovpn_pki_dir)" \
+    EASYRSA_BATCH=1 \
     "${bin}" "$@" >/tmp/cyferio-easyrsa.$$ 2>&1
   local status=$?
   if [[ ${status} -ne 0 ]]; then
@@ -78,14 +101,14 @@ ovpn_pki_bootstrap() {
 
   if [[ ! -f "${pki_dir}/ca.crt" ]]; then
     _ovpn_easyrsa init-pki || die "easyrsa init-pki failed" 3
-    _ovpn_easyrsa build-ca nopass || die "easyrsa build-ca failed" 3
+    _ovpn_easyrsa_env "EASYRSA_REQ_CN=Cyferio-CA" -- build-ca nopass || die "easyrsa build-ca failed" 3
     log_info "install.pki" "step=ca result=created"
   else
     log_info "install.pki" "step=ca result=skipped_existing"
   fi
 
   if [[ ! -f "${pki_dir}/issued/server.crt" ]]; then
-    _ovpn_easyrsa gen-req server nopass || die "easyrsa gen-req server failed" 3
+    _ovpn_easyrsa_env "EASYRSA_REQ_CN=server" -- gen-req server nopass || die "easyrsa gen-req server failed" 3
     _ovpn_easyrsa sign-req server server || die "easyrsa sign-req server failed" 3
     log_info "install.pki" "step=server_cert result=created"
   else
@@ -243,6 +266,63 @@ vpn_backend_connected_clients() {
   local status_file="/var/log/cyferio/openvpn-status.log"
   [[ -f "${status_file}" ]] || { echo 0; return 0; }
   grep -c '^CLIENT_LIST,' "${status_file}" 2>/dev/null || echo 0
+}
+
+# --- client certificate lifecycle (Phase 3) -----------------------------
+# vpn_backend_provision_client / _revoke_client complete the
+# backend-agnostic interface from docs/architecture/00-overview.md.
+# lib/certs.sh (cert create/revoke/list/status) and, from Phase 4 on,
+# lib/users.sh call these — nothing outside backends/openvpn.sh touches
+# easyrsa directly.
+
+# vpn_backend_provision_client NAME — issue a client certificate. Errors
+# clearly (not silently) if one already exists for this name — re-issuing
+# requires an explicit revoke first, matching "profile regenerate"'s
+# eventual revoke-then-reissue flow (Phase 5), not a silent overwrite.
+vpn_backend_provision_client() {
+  local name="$1"
+  local pki_dir
+  pki_dir="$(ovpn_pki_dir)"
+  [[ -f "${pki_dir}/ca.crt" ]] || die "PKI not initialized — run 'cyferio-vpn install' first" 3
+  if [[ -f "${pki_dir}/issued/${name}.crt" ]]; then
+    die "a certificate for '${name}' already exists (see 'cyferio-vpn cert status ${name}')" 1
+  fi
+  _ovpn_easyrsa_env "EASYRSA_REQ_CN=${name}" -- gen-req "${name}" nopass || die "easyrsa gen-req failed for '${name}'" 3
+  _ovpn_easyrsa sign-req client "${name}" || die "easyrsa sign-req failed for '${name}'" 3
+  chmod 0600 "${pki_dir}/private/${name}.key"
+  log_info "cert.create" "name=${name} result=success"
+}
+
+# vpn_backend_revoke_client NAME — revoke + regenerate/export the CRL so
+# the running server (which re-reads /etc/openvpn/server/crl.pem on every
+# connect) picks up the revocation immediately, no restart needed.
+vpn_backend_revoke_client() {
+  local name="$1"
+  local pki_dir
+  pki_dir="$(ovpn_pki_dir)"
+  [[ -f "${pki_dir}/issued/${name}.crt" ]] || die "no certificate found for '${name}'" 1
+  _ovpn_easyrsa revoke "${name}" || die "easyrsa revoke failed for '${name}'" 3
+  _ovpn_easyrsa gen-crl || die "easyrsa gen-crl failed" 3
+  ovpn_export_crl
+  log_info "cert.revoke" "name=${name} result=success"
+}
+
+# vpn_backend_list_clients — one line per issued certificate (server cert
+# included), pipe-delimited: status|expiry_iso|revoked_iso|serial|cn.
+# Sourced from EasyRSA's own index.txt — the PKI store is the source of
+# truth here, not the SQLite DB (Phase 3 is explicitly usable without any
+# `users` row existing; Phase 4 wires the two together).
+vpn_backend_list_clients() {
+  local index
+  index="$(ovpn_pki_dir)/index.txt"
+  [[ -f "${index}" ]] || return 0
+  awk -F'\t' '
+    NF==5 { print $1"|"$2"||"$3"|"$5 }
+    NF==6 { print $1"|"$2"|"$3"|"$4"|"$6 }
+  ' "${index}" | while IFS='|' read -r status expiry revoked serial subject; do
+    local cn="${subject#*CN=}"
+    echo "${status}|$(asn1_to_iso "${expiry}")|$([[ -n "${revoked}" ]] && asn1_to_iso "${revoked}")|${serial}|${cn}"
+  done
 }
 
 # ovpn_uninstall — stop/disable the service and remove OpenVPN-managed

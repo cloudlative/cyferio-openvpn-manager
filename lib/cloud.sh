@@ -61,8 +61,10 @@ cloud_public_ip() {
     aws)
       local token
       token="$(_cloud_aws_imds_token 2>/dev/null || true)"
-      [[ -n "${token}" ]] && curl -fsS -m "${_CLOUD_MD_TIMEOUT}" -H "X-aws-ec2-metadata-token: ${token}" \
-        http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null
+      if [[ -n "${token}" ]]; then
+        curl -fsS -m "${_CLOUD_MD_TIMEOUT}" -H "X-aws-ec2-metadata-token: ${token}" \
+          http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null
+      fi
       ;;
     *)
       return 1

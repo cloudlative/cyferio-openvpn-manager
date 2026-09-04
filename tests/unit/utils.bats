@@ -82,3 +82,23 @@ setup() {
   run netmask_to_prefix "255.255.255.7"
   [ "$status" -ne 0 ]
 }
+
+@test "asn1_to_iso converts an EasyRSA index.txt timestamp" {
+  result="$(asn1_to_iso "260904120000Z")"
+  [ "$result" = "2026-09-04T12:00:00Z" ]
+}
+
+@test "asn1_to_iso passes through an unparseable value unchanged" {
+  result="$(asn1_to_iso "")"
+  [ "$result" = "" ]
+}
+
+@test "current_actor prefers SUDO_USER over the current user" {
+  result="$(SUDO_USER=asif current_actor)"
+  [ "$result" = "asif" ]
+}
+
+@test "current_actor falls back to the current user when SUDO_USER is unset" {
+  result="$(env -u SUDO_USER bash -c 'source '"${BATS_TEST_DIRNAME}"'/../../lib/core.sh; source '"${BATS_TEST_DIRNAME}"'/../../lib/logger.sh; source '"${BATS_TEST_DIRNAME}"'/../../lib/utils.sh; current_actor')"
+  [ -n "$result" ]
+}
