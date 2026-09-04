@@ -309,12 +309,31 @@ vpn_backend_server_status() {
   fi
 }
 
-# vpn_backend_connected_clients — count of currently connected clients, for
-# status.sh (Phase 9). Parses OpenVPN's status file (CLIENT_LIST lines).
+# ovpn_status_clients — one pipe-delimited row per currently connected
+# client: common_name|real_address|virtual_address|bytes_received|
+# bytes_sent|connected_since. Parses OpenVPN's status-version 2 file
+# (server.conf.tmpl's `status-version 2` — the default, unset, is
+# version 1's plain CSV with no CLIENT_LIST prefix at all, which this
+# would silently match zero lines of). Column indices per OpenVPN's own
+# v2 CLIENT_LIST header: CommonName,RealAddress,VirtualAddress,
+# VirtualIPv6Address,BytesReceived,BytesSent,ConnectedSince,... — field 5
+# (IPv6) is skipped, nothing else in this repo needs it yet.
+ovpn_status_clients() {
+  local status_file="${CYFERIO_LOG_DIR}/openvpn-status.log"
+  [[ -f "${status_file}" ]] || return 0
+  awk -F',' '$1=="CLIENT_LIST"{print $2"|"$3"|"$4"|"$6"|"$7"|"$8}' "${status_file}"
+}
+
+# vpn_backend_connected_clients — count of currently connected clients,
+# for status.sh (Phase 9).
 vpn_backend_connected_clients() {
-  local status_file="/var/log/cyferio/openvpn-status.log"
-  [[ -f "${status_file}" ]] || { echo 0; return 0; }
-  grep -c '^CLIENT_LIST,' "${status_file}" 2>/dev/null || echo 0
+  local clients
+  clients="$(ovpn_status_clients)"
+  if [[ -z "${clients}" ]]; then
+    echo 0
+  else
+    wc -l <<<"${clients}"
+  fi
 }
 
 # --- client certificate lifecycle (Phase 3) -----------------------------

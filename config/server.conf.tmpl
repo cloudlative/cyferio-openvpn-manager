@@ -41,6 +41,12 @@ persist-key
 persist-tun
 
 status /var/log/cyferio/openvpn-status.log
+# Version 2: comma-delimited, HEADER/CLIENT_LIST/ROUTING_TABLE-prefixed
+# lines. Default (unset) is version 1, plain CSV with no line-type
+# prefix — lib/backends/openvpn.sh's ovpn_status_clients parses the v2
+# shape (`awk -F',' '$1=="CLIENT_LIST"...'`), so this must stay set for
+# `cyferio-vpn status` (Phase 9) to see any connected clients at all.
+status-version 2
 log-append /var/log/cyferio/openvpn.log
 verb 3
 explicit-exit-notify 1
