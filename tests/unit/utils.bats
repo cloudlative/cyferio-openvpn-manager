@@ -62,3 +62,23 @@ setup() {
   result="$(sql_quote "o'brien")"
   [ "$result" = "o''brien" ]
 }
+
+@test "netmask_to_prefix converts /24" {
+  result="$(netmask_to_prefix "255.255.255.0")"
+  [ "$result" = "24" ]
+}
+
+@test "netmask_to_prefix converts /16" {
+  result="$(netmask_to_prefix "255.255.0.0")"
+  [ "$result" = "16" ]
+}
+
+@test "netmask_to_prefix converts /25" {
+  result="$(netmask_to_prefix "255.255.255.128")"
+  [ "$result" = "25" ]
+}
+
+@test "netmask_to_prefix rejects an invalid octet" {
+  run netmask_to_prefix "255.255.255.7"
+  [ "$status" -ne 0 ]
+}

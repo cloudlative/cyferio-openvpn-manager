@@ -1,0 +1,46 @@
+# Rendered by lib/backends/openvpn.sh (ovpn_render_server_config).
+# Placeholders (__NAME__) are substituted at render time — do not edit the
+# rendered copy at /etc/openvpn/server/server.conf directly, it will be
+# overwritten on the next `cyferio-vpn install`.
+
+port __VPN_PORT__
+proto __VPN_PROTO__
+dev tun
+
+ca __PKI_DIR__/ca.crt
+cert __PKI_DIR__/issued/server.crt
+key __PKI_DIR__/private/server.key
+dh __PKI_DIR__/dh.pem
+tls-crypt __PKI_DIR__/ta.key
+# crl.pem is exported out of the (0700, root-only) PKI dir to a
+# world-readable location on every generation — the daemon re-reads this
+# path on every client connect, and under `user nobody` (below) it can no
+# longer traverse into __PKI_DIR__ once privileges are dropped.
+crl-verify /etc/openvpn/server/crl.pem
+
+topology subnet
+server __VPN_SUBNET__ __VPN_SUBNET_MASK__
+ifconfig-pool-persist /var/lib/cyferio/ipp.txt
+
+push "redirect-gateway def1 bypass-dhcp"
+push "dhcp-option DNS 1.1.1.1"
+push "dhcp-option DNS 8.8.8.8"
+
+# MAC-address enforcement hooks (see docs/architecture/04-mac-validation.md).
+# Phase 2 installs no-op stubs (accept-and-log); Phase 7 replaces their logic.
+script-security 2
+client-connect __HOOKS_DIR__/client-connect.sh
+client-disconnect __HOOKS_DIR__/client-disconnect.sh
+
+keepalive 10 120
+cipher AES-256-GCM
+auth SHA256
+user nobody
+group nogroup
+persist-key
+persist-tun
+
+status /var/log/cyferio/openvpn-status.log
+log-append /var/log/cyferio/openvpn.log
+verb 3
+explicit-exit-notify 1

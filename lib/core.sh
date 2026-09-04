@@ -38,6 +38,7 @@ ${CYFERIO_NAME} v${CYFERIO_VERSION}
 
 Usage:
   cyferio-vpn <command> [subcommand] [args...] [--json|--table|--plain]
+  cyferio-vpn --interactive          Launch the menu-driven interface
 
 Commands:
   install [--force]              Install and configure OpenVPN
@@ -54,7 +55,7 @@ Commands:
   version                        Print version
   help                           Show this help
 
-Run with no arguments for the interactive menu.
+Run with no arguments to see this help; use --interactive for the menu-driven interface.
 
 Docs: docs/architecture/  Website: https://cyferio.com
 EOF
@@ -62,6 +63,23 @@ EOF
 
 core_version() {
   echo "${CYFERIO_NAME} v${CYFERIO_VERSION}"
+}
+
+# core_banner — printed on every execution per spec. Always to stderr, not
+# stdout: this command's stdout may be piped or parsed as --json, and the
+# banner must never end up mixed into machine-readable output.
+core_banner() {
+  cat >&2 <<'EOF'
+   ______      ____           _
+  / ____/_  __/ __/__  ______(_)___
+ / /   / / / / /_/ _ \/ ___/ / __ \
+/ /___/ /_/ / __/  __/ /  / / /_/ /
+\____/\__, /_/  \___/_/  /_/\____/
+     /____/   OpenVPN Manager
+EOF
+  echo "v${CYFERIO_VERSION} · https://cyferio.com" >&2
+  echo "Asif · LinkedIn: https://www.linkedin.com/in/cloudlative · +92-333-8885567" >&2
+  echo >&2
 }
 
 # core_dispatch — top-level command router. Individual command
@@ -79,7 +97,23 @@ core_dispatch() {
     version|--version|-v)
       core_version
       ;;
-    install|uninstall|user|profile|mac|status|audit|diagnose|backup|restore|network)
+    --interactive)
+      echo "cyferio-vpn: the interactive menu is not implemented yet (coming in Phase 13)" >&2
+      exit 2
+      ;;
+    install)
+      shift
+      cmd_install "$@"
+      ;;
+    uninstall)
+      shift
+      cmd_uninstall "$@"
+      ;;
+    network)
+      shift
+      cmd_network "$@"
+      ;;
+    user|profile|mac|status|audit|diagnose|backup|restore)
       echo "cyferio-vpn: '${cmd}' is not implemented yet (coming in a later phase)" >&2
       exit 2
       ;;

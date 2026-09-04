@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+# backends/openvpn.sh — the only module aware of OpenVPN/EasyRSA specifics.
+# Backend-agnostic interface (see docs/architecture/00-overview.md):
+#   vpn_backend_provision_client / _revoke_client / _render_profile
+#   vpn_backend_server_status / _connected_clients
+# Phase 2 implements PKI bootstrap (CA + server cert), server config
+# rendering, systemd, and NAT/firewall — the client-cert side of the
+# interface (provision/revoke/render_profile) lands in Phase 3/4.
+
+if [[ -n "${__CYFERIO_BACKEND_OPENVPN_LOADED:-}" ]]; then
+  return 0
+fi
+__CYFERIO_BACKEND_OPENVPN_LOADED=1
+
+OVPN_SERVER_DIR="/etc/openvpn/server"
+OVPN_SERVER_CONF="${OVPN_SERVER_DIR}/server.conf"
+OVPN_CRL_PATH="${OVPN_SERVER_DIR}/crl.pem"
+OVPN_SYSTEMD_UNIT="openvpn-server@server"
+
+ovpn_pki_dir() {
+  echo "${CYFERIO_CONF_DIR}/pki"
+}
+
+ovpn_hooks_dir() {
+  echo "${CYFERIO_CONF_DIR}/hooks"
+}
+
+# _ovpn_easyrsa_bin — locate the easyrsa3 executable across distro layouts.
+_ovpn_easyrsa_bin() {
+  if is_command_available easyrsa; then
+    command -v easyrsa
+    return 0
+  fi
+  local candidate
+  for candidate in /usr/share/easy-rsa/easyrsa /usr/share/easy-rsa/*/easyrsa; do
+    if [[ -x "${candidate}" ]]; then
+      echo "${candidate}"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# _ovpn_easyrsa ARGS... — run easyrsa non-interactively against our PKI dir.
+_ovpn_easyrsa() {
+  local bin
+  bin="$(_ovpn_easyrsa_bin)" || die "easyrsa executable not found (is the easy-rsa package installed?)" 3
+  EASYRSA_PKI="$(ovpn_pki_dir)" \
+  EASYRSA_BATCH=1 \
+  EASYRSA_REQ_CN="Cyferio-CA" \
+    "${bin}" "$@" >/tmp/cyferio-easyrsa.$$ 2>&1
+  local status=$?
+  if [[ ${status} -ne 0 ]]; then
+    cat /tmp/cyferio-easyrsa.$$ >&2
+  fi
+  rm -f /tmp/cyferio-easyrsa.$$
+  return "${status}"
+}
+
+# ovpn_install_packages — idempotent: apt-get install is a no-op for
+# already-installed packages.
+ovpn_install_packages() {
+  require_root
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -y -qq openvpn easy-rsa sqlite3 jq curl iproute2 iptables >/dev/null
+  log_info "install.packages" "result=success"
+}
+
+# ovpn_pki_bootstrap — CA + server certificate. Idempotent: skips whatever
+# already exists rather than re-running (a partial prior run resumes
+# cleanly instead of erroring on "already exists").
+ovpn_pki_bootstrap() {
+  require_root
+  local pki_dir
+  pki_dir="$(ovpn_pki_dir)"
+  mkdir -p "${CYFERIO_CONF_DIR}"
+
+  if [[ ! -f "${pki_dir}/ca.crt" ]]; then
+    _ovpn_easyrsa init-pki || die "easyrsa init-pki failed" 3
+    _ovpn_easyrsa build-ca nopass || die "easyrsa build-ca failed" 3
+    log_info "install.pki" "step=ca result=created"
+  else
+    log_info "install.pki" "step=ca result=skipped_existing"
+  fi
+
+  if [[ ! -f "${pki_dir}/issued/server.crt" ]]; then
+    _ovpn_easyrsa gen-req server nopass || die "easyrsa gen-req server failed" 3
+    _ovpn_easyrsa sign-req server server || die "easyrsa sign-req server failed" 3
+    log_info "install.pki" "step=server_cert result=created"
+  else
+    log_info "install.pki" "step=server_cert result=skipped_existing"
+  fi
+
+  if [[ ! -f "${pki_dir}/dh.pem" ]]; then
+    _ovpn_easyrsa gen-dh || die "easyrsa gen-dh failed" 3
+    log_info "install.pki" "step=dh result=created"
+  else
+    log_info "install.pki" "step=dh result=skipped_existing"
+  fi
+
+  if [[ ! -f "${pki_dir}/ta.key" ]]; then
+    openvpn --genkey secret "${pki_dir}/ta.key" || die "openvpn --genkey secret failed" 3
+    log_info "install.pki" "step=tls_crypt_key result=created"
+  else
+    log_info "install.pki" "step=tls_crypt_key result=skipped_existing"
+  fi
+
+  # Always (re-)export the CRL — cheap, and covers the case where a prior
+  # install got this far but crashed before the export step.
+  _ovpn_easyrsa gen-crl || die "easyrsa gen-crl failed" 3
+  ovpn_export_crl
+
+  chmod 0700 "${pki_dir}"
+  [[ -d "${pki_dir}/private" ]] && chmod 0700 "${pki_dir}/private"
+  chmod 0600 "${pki_dir}"/private/* 2>/dev/null || true
+}
+
+# ovpn_export_crl — copy the CRL out of the 0700 PKI dir to a
+# world-readable location so `openvpn-server@server` (running as
+# `nobody`) can re-read it on every client connect. Called by
+# ovpn_pki_bootstrap and again on every future revocation (Phase 3).
+ovpn_export_crl() {
+  local pki_dir
+  pki_dir="$(ovpn_pki_dir)"
+  mkdir -p "${OVPN_SERVER_DIR}"
+  install -m 0644 "${pki_dir}/crl.pem" "${OVPN_CRL_PATH}"
+}
+
+# ovpn_install_hooks — render the client-connect/-disconnect stubs (Phase 2:
+# accept-and-log; Phase 7 replaces the logic in place, same file paths).
+ovpn_install_hooks() {
+  require_root
+  local hooks_dir template_dir
+  hooks_dir="$(ovpn_hooks_dir)"
+  template_dir="${CYFERIO_ROOT_DIR}/templates"
+  mkdir -p "${hooks_dir}"
+
+  install -m 0700 "${template_dir}/client-connect.sh.tmpl" "${hooks_dir}/client-connect.sh"
+  install -m 0700 "${template_dir}/client-disconnect.sh.tmpl" "${hooks_dir}/client-disconnect.sh"
+  log_info "install.hooks" "result=success"
+}
+
+# ovpn_render_server_config — fill config/server.conf.tmpl and install it.
+# Re-run on every `install` (idempotent by re-render, not by skip) so a
+# config-format change in a later version is picked up on upgrade.
+ovpn_render_server_config() {
+  require_root
+  local template="${CYFERIO_ROOT_DIR}/config/server.conf.tmpl"
+  [[ -f "${template}" ]] || die "server config template not found: ${template}" 3
+
+  mkdir -p "${OVPN_SERVER_DIR}"
+
+  sed \
+    -e "s|__VPN_PORT__|$(config_get vpn_port)|g" \
+    -e "s|__VPN_PROTO__|$(config_get vpn_proto)|g" \
+    -e "s|__VPN_SUBNET__|$(config_get vpn_subnet)|g" \
+    -e "s|__VPN_SUBNET_MASK__|$(config_get vpn_subnet_mask)|g" \
+    -e "s|__PKI_DIR__|$(ovpn_pki_dir)|g" \
+    -e "s|__HOOKS_DIR__|$(ovpn_hooks_dir)|g" \
+    "${template}" >"${OVPN_SERVER_CONF}.new"
+
+  mkdir -p /var/lib/cyferio
+  mv "${OVPN_SERVER_CONF}.new" "${OVPN_SERVER_CONF}"
+  chmod 0644 "${OVPN_SERVER_CONF}"
+  log_info "install.server_config" "result=success" "port=$(config_get vpn_port)" "proto=$(config_get vpn_proto)"
+}
+
+# ovpn_configure_ip_forwarding — enable + persist net.ipv4.ip_forward=1.
+ovpn_configure_ip_forwarding() {
+  require_root
+  local sysctl_file="/etc/sysctl.d/99-cyferio-forwarding.conf"
+  echo "net.ipv4.ip_forward = 1" >"${sysctl_file}"
+  sysctl -q -p "${sysctl_file}"
+  log_info "install.ip_forward" "result=success"
+}
+
+# _ovpn_wan_interface — best-effort primary outbound interface.
+_ovpn_wan_interface() {
+  ip route show default 2>/dev/null | awk '/^default/ {for (i=1;i<=NF;i++) if ($i=="dev") print $(i+1)}' | head -n1
+}
+
+# ovpn_configure_nat_and_firewall — MASQUERADE the VPN subnet out the WAN
+# interface and open the OpenVPN port. Idempotent: rule-presence is checked
+# with `iptables -C` before `iptables -A`, so re-running doesn't duplicate
+# rules. Persisted via netfilter-persistent so it survives reboot.
+ovpn_configure_nat_and_firewall() {
+  require_root
+  local wan_if subnet_cidr port proto
+  wan_if="$(_ovpn_wan_interface)"
+  [[ -n "${wan_if}" ]] || die "could not determine the outbound network interface" 3
+  subnet_cidr="$(config_get vpn_subnet)/$(netmask_to_prefix "$(config_get vpn_subnet_mask)")"
+  port="$(config_get vpn_port)"
+  proto="$(config_get vpn_proto)"
+
+  if ! iptables -t nat -C POSTROUTING -s "${subnet_cidr}" -o "${wan_if}" -j MASQUERADE 2>/dev/null; then
+    iptables -t nat -A POSTROUTING -s "${subnet_cidr}" -o "${wan_if}" -j MASQUERADE
+  fi
+  if ! iptables -C INPUT -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null; then
+    iptables -I INPUT -p "${proto}" --dport "${port}" -j ACCEPT
+  fi
+  if ! iptables -C FORWARD -i tun0 -o "${wan_if}" -j ACCEPT 2>/dev/null; then
+    iptables -A FORWARD -i tun0 -o "${wan_if}" -j ACCEPT
+  fi
+  if ! iptables -C FORWARD -i "${wan_if}" -o tun0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null; then
+    iptables -A FORWARD -i "${wan_if}" -o tun0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+  fi
+
+  if is_command_available netfilter-persistent; then
+    netfilter-persistent save >/dev/null 2>&1 || true
+  elif [[ -d /etc/iptables ]]; then
+    iptables-save >/etc/iptables/rules.v4 2>/dev/null || true
+  fi
+
+  log_info "install.firewall" "result=success" "wan_if=${wan_if}" "port=${port}/${proto}"
+}
+
+# ovpn_enable_service — enable + (re)start via systemd, then verify.
+ovpn_enable_service() {
+  require_root
+  systemctl enable "${OVPN_SYSTEMD_UNIT}" >/dev/null 2>&1
+  systemctl restart "${OVPN_SYSTEMD_UNIT}"
+  sleep 1
+  if ! systemctl is-active --quiet "${OVPN_SYSTEMD_UNIT}"; then
+    journalctl -u "${OVPN_SYSTEMD_UNIT}" --no-pager -n 30 >&2 || true
+    die "openvpn-server@server failed to start — see journalctl output above" 3
+  fi
+  log_info "install.service" "result=running"
+}
+
+# vpn_backend_server_status — running|stopped, for status.sh (Phase 9).
+vpn_backend_server_status() {
+  if systemctl is-active --quiet "${OVPN_SYSTEMD_UNIT}" 2>/dev/null; then
+    echo running
+  else
+    echo stopped
+  fi
+}
+
+# vpn_backend_connected_clients — count of currently connected clients, for
+# status.sh (Phase 9). Parses OpenVPN's status file (CLIENT_LIST lines).
+vpn_backend_connected_clients() {
+  local status_file="/var/log/cyferio/openvpn-status.log"
+  [[ -f "${status_file}" ]] || { echo 0; return 0; }
+  grep -c '^CLIENT_LIST,' "${status_file}" 2>/dev/null || echo 0
+}
+
+# ovpn_uninstall — stop/disable the service and remove OpenVPN-managed
+# state. Does NOT touch the SQLite database or backups — install.sh's
+# cmd_uninstall orchestrates those separately, and always backs up first.
+ovpn_uninstall() {
+  require_root
+  systemctl disable --now "${OVPN_SYSTEMD_UNIT}" >/dev/null 2>&1 || true
+
+  local wan_if subnet_cidr port proto
+  wan_if="$(_ovpn_wan_interface)"
+  subnet_cidr="$(config_get vpn_subnet)/$(netmask_to_prefix "$(config_get vpn_subnet_mask)")"
+  port="$(config_get vpn_port)"
+  proto="$(config_get vpn_proto)"
+  if [[ -n "${wan_if}" ]]; then
+    iptables -t nat -D POSTROUTING -s "${subnet_cidr}" -o "${wan_if}" -j MASQUERADE 2>/dev/null || true
+    iptables -D INPUT -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null || true
+    iptables -D FORWARD -i tun0 -o "${wan_if}" -j ACCEPT 2>/dev/null || true
+    iptables -D FORWARD -i "${wan_if}" -o tun0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+    is_command_available netfilter-persistent && netfilter-persistent save >/dev/null 2>&1 || true
+  fi
+
+  rm -f /etc/sysctl.d/99-cyferio-forwarding.conf
+  rm -rf "${OVPN_SERVER_DIR}"
+  rm -rf "$(ovpn_pki_dir)"
+  rm -rf "$(ovpn_hooks_dir)"
+  log_info "uninstall.openvpn" "result=success"
+}

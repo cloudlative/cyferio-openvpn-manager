@@ -18,7 +18,10 @@ teardown() {
 @test "version prints name and version" {
   run "${REPO_ROOT}/bin/cyferio-vpn" version
   [ "$status" -eq 0 ]
-  [[ "$output" == "Cyferio OpenVPN Manager v"* ]]
+  # banner (spec-mandated, printed on every execution) precedes this on
+  # stderr, which `run` merges into $output — so check containment, not a
+  # prefix match.
+  [[ "$output" == *"Cyferio OpenVPN Manager v"* ]]
 }
 
 @test "help prints usage" {
@@ -28,10 +31,16 @@ teardown() {
   [[ "$output" == *"cyferio-vpn <command>"* ]]
 }
 
-@test "no arguments prints usage (interactive menu placeholder)" {
+@test "no arguments prints usage" {
   run "${REPO_ROOT}/bin/cyferio-vpn"
   [ "$status" -eq 0 ]
   [[ "$output" == *"Usage:"* ]]
+}
+
+@test "--interactive is recognized but not yet implemented" {
+  run "${REPO_ROOT}/bin/cyferio-vpn" --interactive
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"interactive menu"* ]]
 }
 
 @test "unknown command exits 1 with a clear message" {

@@ -79,6 +79,29 @@ ui_ok()   { printf '%s✓ %s%s\n' "$(_ui_color 32)" "$1" "$(_ui_reset)"; }
 ui_warn() { printf '%s⚠ %s%s\n' "$(_ui_color 33)" "$1" "$(_ui_reset)"; }
 ui_err()  { printf '%s✗ %s%s\n' "$(_ui_color 31)" "$1" "$(_ui_reset)"; }
 
+# netmask_to_prefix DOTTED_MASK — e.g. 255.255.255.0 -> 24. Used to build a
+# CIDR string for iptables rules from the (dotted-decimal) vpn_subnet_mask
+# config value.
+netmask_to_prefix() {
+  local mask="$1" IFS=. octet bits=0
+  read -r -a octets <<<"${mask}"
+  for octet in "${octets[@]}"; do
+    case "${octet}" in
+      255) bits=$((bits + 8)) ;;
+      254) bits=$((bits + 7)) ;;
+      252) bits=$((bits + 6)) ;;
+      248) bits=$((bits + 5)) ;;
+      240) bits=$((bits + 4)) ;;
+      224) bits=$((bits + 3)) ;;
+      192) bits=$((bits + 2)) ;;
+      128) bits=$((bits + 1)) ;;
+      0) ;;
+      *) die "invalid netmask octet '${octet}' in '${mask}'" 1 ;;
+    esac
+  done
+  echo "${bits}"
+}
+
 # sql_quote VALUE — escapes single quotes for embedding into a SQL literal.
 # Callers should still validate input with validate_username/validate_mac
 # etc. first — this is defense in depth, not the primary control (see

@@ -20,7 +20,7 @@ All metadata calls target the shared cloud-metadata link-local address `169.254.
 ## Per-provider validation (post-detection, feeds into `06-networking-validation.md`'s pre-flight report)
 
 - **AWS**: `Source/Destination Check` on the primary ENI (via IMDS `network/interfaces/macs/<mac>/...` — read-only, no AWS API credentials required for what's exposed via IMDS), NACL/route-table checks flagged as "verify in AWS Console" (out of reach without IAM creds — the tool doesn't assume any).
-- **GCP**: IP forwarding (`can_ip_forward` field in IMDS instance data) — GCP requires this to be enabled on the instance for VPN routing to work; MTU note in output (GCP default MTU 1460 vs standard 1500).
+- **GCP**: IP forwarding — `canIpForward` is a Compute Engine instance property, not exposed by the metadata service to the instance itself, so this surfaces as a reminder-with-remediation (verify via `gcloud compute instances describe --format="value(canIpForward)"` or the Console), not an in-band pass/fail; MTU note in output (GCP default MTU 1460 vs standard 1500, read from metadata).
 - **Azure**: NSG/route-table checks flagged "verify in Azure Portal" (same no-credentials constraint as AWS); public IP configuration checked via IMDS `network/interface/0/ipv4/ipAddress/0/publicIpAddress`.
 - **OVH**: gateway routing sanity check (default route present, matches OVH's typical failover-IP gotchas) — documented remediation text, not auto-fixed.
 - **Contabo**: primary interface name/detection sanity check only (Contabo's networking is close to bare-metal; mainly documents "check your provider's specific interface naming").

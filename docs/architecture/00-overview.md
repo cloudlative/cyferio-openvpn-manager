@@ -2,7 +2,7 @@
 
 ## Design principles
 
-- **Bash only, no web UI.** Every capability is reachable from the CLI (`cyferio-vpn <command>`) or the interactive menu (`cyferio-vpn` with no args). No daemon serves HTTP.
+- **Bash only, no web UI.** Every capability is reachable from the CLI (`cyferio-vpn <command>`) or the interactive menu (`cyferio-vpn --interactive`; no args alone prints help). No daemon serves HTTP.
 - **Idempotent.** `cyferio-vpn install` run twice must not corrupt or duplicate an existing deployment — every mutating operation checks current state before acting.
 - **Secure by default.** Least-privilege file permissions, no secrets in shell history or process args, no unsanitized input reaching `sqlite3`, `openssl`, or shell `eval`.
 - **Modular.** Each concern (`core`, `network`, `openvpn`, `users`, `profiles`, `macs`, `database`, `audit`, `diagnostics`, `backup`, `restore`, `reporting`, `cloud`, `ui`, `logging`) is one file in `lib/`, sourced once by `bin/cyferio-vpn`, with narrow function-call boundaries — no module reaches into another's internals or private state.
@@ -82,7 +82,8 @@ cyferio-vpn network detect [--json]
 
 cyferio-vpn version
 cyferio-vpn --help
-cyferio-vpn                      # interactive menu
+cyferio-vpn --interactive         # interactive menu
+cyferio-vpn                      # (no args) prints help
 ```
 
 All list/get/report commands accept `--json`; `mac report` additionally accepts `--table` (default) per spec.

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Installed to /etc/cyferio/hooks/client-connect.sh, invoked by OpenVPN's
+# `client-connect` directive on every connection attempt (script-security 2).
+#
+# Phase 2 stub: accept-and-log only. MAC-address enforcement against
+# user_macs (via IV_HWADDR peer-info, since the client profile sets
+# push-peer-info) lands in Phase 7 — see docs/architecture/04-mac-validation.md.
+# This stub exists so the server can start and accept connections before
+# that phase is built, without silently having no client-connect at all.
+set -u
+
+echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) [INFO] [session.connect] common_name=${common_name:-unknown} mac=${IV_HWADDR:-unavailable}" >>/var/log/cyferio/cyferio.log 2>/dev/null || true
+
+exit 0

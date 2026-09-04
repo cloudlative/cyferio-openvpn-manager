@@ -29,14 +29,17 @@ fi
 
 # Dependency order matters: core.sh sets strict mode + paths first; logger.sh
 # and utils.sh have no dependencies on each other; config.sh and database.sh
-# use utils.sh (die, is_command_available).
-for module in core logger utils config database; do
+# use utils.sh (die, is_command_available); network.sh/cloud.sh share the
+# checks accumulator (cloud.sh calls network.sh's check_add); backends/
+# openvpn.sh uses utils/config/logger; install.sh composes all of them.
+for module in core logger utils config database network cloud backends/openvpn install; do
   # shellcheck source=/dev/null
   source "${LIB_DIR}/${module}.sh"
 done
 
 trap 'core_on_error $? $LINENO' ERR
 
+core_banner
 config_load
 
 core_dispatch "$@"
