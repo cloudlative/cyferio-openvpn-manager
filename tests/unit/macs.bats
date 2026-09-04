@@ -9,6 +9,7 @@ setup() {
   source "${REPO_ROOT}/lib/logger.sh"
   source "${REPO_ROOT}/lib/utils.sh"
   source "${REPO_ROOT}/lib/config.sh"
+  source "${REPO_ROOT}/lib/reporting.sh"
   source "${REPO_ROOT}/lib/macs.sh"
 
   # Stub the DB layer: one user "john" (id 1) with no MACs yet, and a
@@ -188,4 +189,57 @@ setup() {
   run cmd_internal bogus
   [ "$status" -ne 0 ]
   [[ "$output" == *"unknown internal subcommand"* ]]
+}
+
+# --- Phase 8: mac_report -------------------------------------------------
+
+@test "mac_report prints an empty-state message when there are no users" {
+  db_mac_report() { :; }
+  run mac_report
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"No users yet."* ]]
+}
+
+@test "mac_report table shows MAC count, MAC list, and last event" {
+  db_mac_report() {
+    printf 'alice|active|2|AA:BB:CC:DD:EE:01,AA:BB:CC:DD:EE:02|auth.mac_accept:2026-01-02 03:04:05\n'
+    printf 'bob|disabled|0||\n'
+  }
+  run mac_report
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"alice"*"active"*"2"*"AA:BB:CC:DD:EE:01,AA:BB:CC:DD:EE:02"*"auth.mac_accept @ 2026-01-02 03:04:05"* ]]
+  [[ "$output" == *"bob"*"disabled"*"0"*"-"* ]]
+}
+
+@test "mac_report --json emits mac_addresses as an array and last_event as an object" {
+  db_mac_report() {
+    printf 'alice|active|2|AA:BB:CC:DD:EE:01,AA:BB:CC:DD:EE:02|auth.mac_accept:2026-01-02 03:04:05\n'
+  }
+  run mac_report --json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '
+    .[0].username == "alice"
+    and (.[0].mac_addresses | length == 2)
+    and .[0].mac_addresses[0] == "AA:BB:CC:DD:EE:01"
+    and .[0].last_event.action == "auth.mac_accept"
+    and .[0].last_event.timestamp == "2026-01-02 03:04:05"
+  ' >/dev/null
+}
+
+@test "mac_report --json omits last_event for a user who never connected" {
+  db_mac_report() {
+    printf 'carol|active|0||\n'
+  }
+  run mac_report --json
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '(.[0] | has("last_event")) == false and .[0].mac_addresses == []' >/dev/null
+}
+
+@test "mac_report --plain emits unaligned pipe-delimited rows" {
+  db_mac_report() {
+    printf 'alice|active|1|AA:BB:CC:DD:EE:01|auth.mac_accept:2026-01-02 03:04:05\n'
+  }
+  run mac_report --plain
+  [ "$status" -eq 0 ]
+  [[ "$output" == "alice|active|1|AA:BB:CC:DD:EE:01|auth.mac_accept @ 2026-01-02 03:04:05" ]]
 }

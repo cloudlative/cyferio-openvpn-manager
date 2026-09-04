@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# macs.sh — `cyferio-vpn mac add|remove|update|list`. Owns MAC validation/
-# normalization and duplicate-prevention policy; database.sh's db_mac_*
-# handles the actual SQL. `mac report` (cross-user table/JSON summary) is
-# Phase 8 — Reporting Engine, not this module.
+# macs.sh — `cyferio-vpn mac add|remove|update|list|report`. Owns MAC
+# validation/normalization and duplicate-prevention policy; database.sh's
+# db_mac_* handles the actual SQL. `mac report` (Phase 8) is a thin
+# consumer of lib/reporting.sh's shared table/plain formatter — its own
+# JSON shape is built here directly, same as list's.
 
 if [[ -n "${__CYFERIO_MACS_LOADED:-}" ]]; then
   return 0
@@ -159,6 +160,72 @@ mac_list() {
   done
 }
 
+# mac_report [--table|--plain|--json] — cross-user summary: every user,
+# their registered MAC count/list, and their most recent connection
+# decision (from audit_logs' auth.mac_* rows — see lib/macs.sh's
+# mac_check_connection and db_mac_report). --table is the default, per
+# 00-overview.md's "structured output everywhere" principle.
+mac_report() {
+  local format="table"
+  for arg in "$@"; do
+    case "${arg}" in
+      --json) format="json" ;;
+      --plain) format="plain" ;;
+      --table) format="table" ;;
+    esac
+  done
+  require_root
+
+  local rows
+  rows="$(db_mac_report)"
+
+  if [[ "${format}" == "json" ]]; then
+    local out="[]"
+    if [[ -n "${rows}" ]]; then
+      while IFS='|' read -r uname status mac_count macs_csv last_event; do
+        local macs_json="[]"
+        if [[ -n "${macs_csv}" ]]; then
+          macs_json="$(jq -R -c 'split(",")' <<<"${macs_csv}")"
+        fi
+        local last_action="" last_seen=""
+        if [[ -n "${last_event}" ]]; then
+          last_action="${last_event%%:*}"
+          last_seen="${last_event#*:}"
+        fi
+        out="$(jq -c \
+          --arg username "${uname}" --arg status "${status}" --argjson mac_count "${mac_count}" \
+          --argjson mac_addresses "${macs_json}" --arg last_action "${last_action}" --arg last_seen "${last_seen}" \
+          '. + [{username: $username, status: $status, mac_count: $mac_count, mac_addresses: $mac_addresses}
+                + (if $last_action != "" then {last_event: {action: $last_action, timestamp: $last_seen}} else {} end)]' \
+          <<<"${out}")"
+      done <<<"${rows}"
+    fi
+    echo "${out}"
+    return 0
+  fi
+
+  if [[ -z "${rows}" ]]; then
+    echo "No users yet. Add one with: cyferio-vpn user add USERNAME"
+    return 0
+  fi
+
+  local formatted="" uname status mac_count macs_csv last_event
+  while IFS='|' read -r uname status mac_count macs_csv last_event; do
+    local macs_display="${macs_csv:--}"
+    local last_display="-"
+    if [[ -n "${last_event}" ]]; then
+      last_display="${last_event/:/ @ }"
+    fi
+    formatted+="${uname}|${status}|${mac_count}|${macs_display}|${last_display}"$'\n'
+  done <<<"${rows}"
+
+  if [[ "${format}" == "plain" ]]; then
+    printf '%s' "${formatted}" | report_plain
+  else
+    printf '%s' "${formatted}" | report_table "USERNAME|STATUS|MAC COUNT|MAC ADDRESSES|LAST EVENT"
+  fi
+}
+
 cmd_mac() {
   local subcommand="${1:-}"
   shift || true
@@ -167,12 +234,9 @@ cmd_mac() {
     remove) mac_remove "$@" ;;
     update) mac_update "$@" ;;
     list) mac_list "$@" ;;
-    report)
-      echo "cyferio-vpn: 'mac report' is not implemented yet (coming in Phase 8 — Reporting Engine)" >&2
-      exit 2
-      ;;
+    report) mac_report "$@" ;;
     *)
-      echo "cyferio-vpn: usage: cyferio-vpn mac <add|remove|update|list> ..." >&2
+      echo "cyferio-vpn: usage: cyferio-vpn mac <add|remove|update|list|report> ..." >&2
       exit 1
       ;;
   esac

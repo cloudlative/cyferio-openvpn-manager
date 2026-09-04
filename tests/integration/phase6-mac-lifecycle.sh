@@ -101,12 +101,7 @@ echo "=== mac list: user with none ==="
 grep -q "No MAC addresses registered for 'carol'" /tmp/mac-list-empty.txt && pass "empty-list message shown" || fail "empty-list message missing"
 
 echo
-echo "=== mac report is explicitly deferred to Phase 8 ==="
-if "${CYFERIO_BIN}" mac report 2>/tmp/report.err; then
-  fail "'mac report' should not be implemented yet"
-else
-  grep -q "Phase 8" /tmp/report.err && pass "'mac report' correctly deferred with a clear message" || fail "unclear deferral message"
-fi
-
-echo
 echo "ALL PHASE 6 CHECKS PASSED"
+# 'mac report' was a Phase 8 stub at the time this script was written;
+# it's real now (Phase 8 — Reporting Engine) — see
+# tests/integration/phase8-reporting.sh for its own coverage.

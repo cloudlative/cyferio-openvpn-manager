@@ -186,6 +186,31 @@ db_mac_update() {
   db_exec "UPDATE user_macs SET mac_address = '$(sql_quote "${new_mac}")' WHERE user_id = ${user_id} AND mac_address = '$(sql_quote "${old_mac}")';"
 }
 
+# db_mac_report — one row per user: username|status|mac_count|
+# comma-joined MACs (empty string if none)|last auth.mac_* event as
+# "action:timestamp" (empty string if the user has never attempted a
+# connection). Powers `mac report` (Phase 8 — lib/reporting.sh). The
+# trailing subquery correlates by username against audit_logs' `actor`
+# column, same as every `auth.mac_*` row lib/macs.sh's
+# mac_check_connection writes (Phase 7) — not a user_id join, since
+# audit_logs intentionally has no foreign key to users (an audit trail
+# must survive the user row it's about being deleted).
+db_mac_report() {
+  db_query "
+    SELECT u.username, u.status, COUNT(m.id),
+           COALESCE(GROUP_CONCAT(m.mac_address, ','), ''),
+           COALESCE((
+             SELECT a.action || ':' || a.timestamp FROM audit_logs a
+             WHERE a.actor = u.username AND a.action LIKE 'auth.mac_%'
+             ORDER BY a.timestamp DESC, a.id DESC LIMIT 1
+           ), '')
+    FROM users u
+    LEFT JOIN user_macs m ON m.user_id = u.id
+    GROUP BY u.id
+    ORDER BY u.username;
+  "
+}
+
 # db_mac_find_owner MAC — the username this MAC is registered to, across
 # ALL users (not just one) — used for the cross-user duplicate check
 # doc 02 calls for: a MAC bound to someone else's account is rejected,
