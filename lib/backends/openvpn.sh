@@ -239,7 +239,15 @@ ovpn_configure_nat_and_firewall() {
   local wan_if subnet_cidr port proto
   wan_if="$(_ovpn_wan_interface)"
   [[ -n "${wan_if}" ]] || die "could not determine the outbound network interface" 3
-  subnet_cidr="$(config_get vpn_subnet)/$(netmask_to_prefix "$(config_get vpn_subnet_mask)")"
+  local prefix
+  # Computed separately, not inlined into the subnet_cidr expression: if
+  # netmask_to_prefix's internal die() fires, exit-inside-a-subshell only
+  # kills that nested command substitution — buried inside a larger
+  # string-concatenation assignment, that failure could otherwise be
+  # silently swallowed into a malformed "10.8.0.0/" CIDR instead of
+  # actually stopping the function.
+  prefix="$(netmask_to_prefix "$(config_get vpn_subnet_mask)")" || die "invalid vpn_subnet_mask in config" 1
+  subnet_cidr="$(config_get vpn_subnet)/${prefix}"
   port="$(config_get vpn_port)"
   proto="$(config_get vpn_proto)"
 
@@ -513,7 +521,15 @@ ovpn_uninstall() {
 
   local wan_if subnet_cidr port proto
   wan_if="$(_ovpn_wan_interface)"
-  subnet_cidr="$(config_get vpn_subnet)/$(netmask_to_prefix "$(config_get vpn_subnet_mask)")"
+  local prefix
+  # Computed separately, not inlined into the subnet_cidr expression: if
+  # netmask_to_prefix's internal die() fires, exit-inside-a-subshell only
+  # kills that nested command substitution — buried inside a larger
+  # string-concatenation assignment, that failure could otherwise be
+  # silently swallowed into a malformed "10.8.0.0/" CIDR instead of
+  # actually stopping the function.
+  prefix="$(netmask_to_prefix "$(config_get vpn_subnet_mask)")" || die "invalid vpn_subnet_mask in config" 1
+  subnet_cidr="$(config_get vpn_subnet)/${prefix}"
   port="$(config_get vpn_port)"
   proto="$(config_get vpn_proto)"
   if [[ -n "${wan_if}" ]]; then

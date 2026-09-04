@@ -25,7 +25,13 @@ user_add() {
 
   vpn_backend_provision_client "${username}"
   local profile_path
-  profile_path="$(vpn_backend_render_profile "${username}")"
+  # render_profile prints its own specific die() message on failure
+  # (missing cert/key, no endpoint, validation failure) — the explicit
+  # `|| exit 1` here is what actually stops this function afterward;
+  # exit inside a function invoked via command substitution only kills
+  # that subshell, not this caller (see lib/macs.sh's
+  # _mac_get_user_id for the fuller explanation of this footgun).
+  profile_path="$(vpn_backend_render_profile "${username}")" || exit 1
 
   db_user_insert "${username}" "${profile_path}"
   db_audit_log "user.add" "$(current_actor)" "$(jq -nc --arg username "${username}" '{username:$username}')"

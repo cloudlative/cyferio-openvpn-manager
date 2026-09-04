@@ -25,7 +25,9 @@ profile_export() {
   _profile_require_user "${username}"
 
   local profile_path
-  profile_path="$(vpn_backend_render_profile "${username}")"
+  # See lib/users.sh's user_add for why the explicit `|| exit 1` matters
+  # here (exit-inside-a-subshell doesn't otherwise stop this function).
+  profile_path="$(vpn_backend_render_profile "${username}")" || exit 1
   db_user_set_profile_path "${username}" "${profile_path}"
   db_audit_log "profile.export" "$(current_actor)" "$(jq -nc --arg username "${username}" '{username:$username}')"
 
@@ -58,7 +60,7 @@ profile_regenerate() {
   ovpn_revoke_if_valid "${username}"
   vpn_backend_provision_client "${username}"
   local profile_path
-  profile_path="$(vpn_backend_render_profile "${username}")"
+  profile_path="$(vpn_backend_render_profile "${username}")" || exit 1
   db_user_set_profile_path "${username}" "${profile_path}"
   db_audit_log "profile.regenerate" "$(current_actor)" "$(jq -nc --arg username "${username}" '{username:$username}')"
 

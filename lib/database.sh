@@ -132,6 +132,47 @@ db_user_delete() {
   db_exec "DELETE FROM users WHERE username = '$(sql_quote "${username}")';"
 }
 
+# --- user_macs table CRUD (Phase 6) --------------------------------------
+# user_id is always a numeric id read back from db_user_get (an
+# AUTOINCREMENT INTEGER PRIMARY KEY) — never raw user input — but callers
+# still validate it's numeric before calling these (see
+# macs.sh:_mac_get_user_id) as defense in depth, same posture as every
+# other value that reaches db_exec.
+
+db_mac_insert() {
+  local user_id="$1" mac="$2"
+  db_exec "INSERT INTO user_macs (user_id, mac_address) VALUES (${user_id}, '$(sql_quote "${mac}")');"
+}
+
+db_mac_get() {
+  local user_id="$1" mac="$2"
+  db_query "SELECT mac_address FROM user_macs WHERE user_id = ${user_id} AND mac_address = '$(sql_quote "${mac}")';"
+}
+
+db_mac_list() {
+  local user_id="$1"
+  db_query "SELECT mac_address, created_at FROM user_macs WHERE user_id = ${user_id} ORDER BY created_at;"
+}
+
+db_mac_delete() {
+  local user_id="$1" mac="$2"
+  db_exec "DELETE FROM user_macs WHERE user_id = ${user_id} AND mac_address = '$(sql_quote "${mac}")';"
+}
+
+db_mac_update() {
+  local user_id="$1" old_mac="$2" new_mac="$3"
+  db_exec "UPDATE user_macs SET mac_address = '$(sql_quote "${new_mac}")' WHERE user_id = ${user_id} AND mac_address = '$(sql_quote "${old_mac}")';"
+}
+
+# db_mac_find_owner MAC — the username this MAC is registered to, across
+# ALL users (not just one) — used for the cross-user duplicate check
+# doc 02 calls for: a MAC bound to someone else's account is rejected,
+# not silently allowed as a second binding.
+db_mac_find_owner() {
+  local mac="$1"
+  db_query "SELECT u.username FROM user_macs m JOIN users u ON u.id = m.user_id WHERE m.mac_address = '$(sql_quote "${mac}")' LIMIT 1;"
+}
+
 # db_schema_version — highest applied migration version, or empty if none.
 db_schema_version() {
   db_query "SELECT MAX(version) FROM schema_migrations;" 2>/dev/null || true
