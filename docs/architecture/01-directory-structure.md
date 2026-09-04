@@ -42,9 +42,9 @@ cyferio-openvpn-manager/
 │       └── bats.yml
 ├── README.md
 ├── LICENSE
-├── CHANGELOG.md                    # added Phase 15
-├── CONTRIBUTING.md                 # added Phase 15
-└── SECURITY.md                     # added Phase 15
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+└── SECURITY.md
 ```
 
 ## Runtime filesystem layout (on a deployed server)
