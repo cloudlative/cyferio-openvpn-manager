@@ -37,10 +37,15 @@ teardown() {
   [[ "$output" == *"Usage:"* ]]
 }
 
-@test "--interactive is recognized but not yet implemented" {
+@test "--interactive is recognized and requires a real terminal" {
+  # bats' `run` never attaches a controlling tty, so cmd_interactive's own
+  # guard is what fires here — the same thing every non-interactive
+  # invocation (CI, a script, a pipe) actually hits. Full menu-navigation
+  # behavior needs a real tty and is exercised by the integration test
+  # instead (tests/integration/phase12-interactive.sh).
   run "${REPO_ROOT}/bin/cyferio-vpn" --interactive
-  [ "$status" -eq 2 ]
-  [[ "$output" == *"interactive menu"* ]]
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"requires an interactive terminal"* ]]
 }
 
 @test "unknown command exits 1 with a clear message" {
@@ -50,14 +55,7 @@ teardown() {
 }
 
 @test "--interactive exits cleanly, not a stack dump" {
-  # This regression test's example command moved from status -> audit ->
-  # backup as each became real over Phases 9-11; every command from the
-  # spec's command surface is implemented as of Phase 11 except
-  # --interactive (Phase 13), which is now the only member left of
-  # core_dispatch's "not implemented yet" stub branch — see the test
-  # right above this one for its own dedicated coverage.
   run "${REPO_ROOT}/bin/cyferio-vpn" --interactive
-  [ "$status" -eq 2 ]
-  [[ "$output" == *"not implemented yet"* ]]
+  [ "$status" -eq 1 ]
   [[ "$output" != *"unbound variable"* ]]
 }

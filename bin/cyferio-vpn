@@ -39,8 +39,10 @@ fi
 # accumulator plus database.sh/backends/openvpn.sh, all already loaded by
 # this point; backup.sh needs diagnostics.sh's diagnose_run (post-restore
 # health check) and must load before install.sh, whose cmd_uninstall
-# calls backup.sh's backup_run; install.sh composes all of them.
-for module in core logger utils config database network cloud backends/openvpn certs users profiles reporting macs status audit diagnostics backup install; do
+# calls backup.sh's backup_run; install.sh composes all of them; ui.sh
+# (the --interactive menu) only calls other modules' cmd_* functions, so
+# it loads last.
+for module in core logger utils config database network cloud backends/openvpn certs users profiles reporting macs status audit diagnostics backup install ui; do
   # shellcheck source=/dev/null
   source "${LIB_DIR}/${module}.sh"
 done

@@ -101,8 +101,7 @@ core_dispatch() {
       core_version
       ;;
     --interactive)
-      echo "cyferio-vpn: the interactive menu is not implemented yet (coming in Phase 13)" >&2
-      exit 2
+      cmd_interactive
       ;;
     install)
       shift
