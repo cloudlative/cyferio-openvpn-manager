@@ -2,7 +2,7 @@
 
 A production-grade, bash-only OpenVPN deployment and management toolkit — no web UI, no browser dependency. Built for home labs, SMBs, enterprises, MSPs, resellers, and dedicated customer deployments.
 
-> **Status: under active development, pre-release.** Every command in the spec's command surface is implemented and verified end-to-end on real disposable cloud VMs — see [CHANGELOG.md](CHANGELOG.md) for what's shipped. No version has been tagged yet.
+> **Status: v1.0.0.** Every command in the spec's command surface is implemented and verified end-to-end on real disposable cloud VMs — see [CHANGELOG.md](CHANGELOG.md) for what's shipped, including this release's known limitations.
 
 ## What this is
 

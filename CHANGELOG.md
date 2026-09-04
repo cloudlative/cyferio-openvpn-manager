@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing has been tagged yet — every item below has shipped to `master` but not
-to a release. See [README.md](README.md) for current status.
+Nothing yet.
+
+## [1.0.0] - 2026-09-05
+
+First tagged release. Every command in the spec's command surface is
+implemented and has been verified end-to-end on real disposable GCP
+Compute Engine VMs.
 
 ### Added
 
@@ -40,14 +45,29 @@ to a release. See [README.md](README.md) for current status.
 - **Interactive menu** — `cyferio-vpn --interactive`: whiptail-based menu
   (plain numbered-prompt fallback when whiptail isn't installed) covering
   every command above, reusing the same `cmd_*` functions as the CLI.
+- **Release-readiness documentation** — CONTRIBUTING.md, SECURITY.md, and
+  this CHANGELOG.
 
 ### Notes
 
 - Every command in the spec's command surface (`install`, `uninstall`,
   `network detect`, `cert`, `user`, `profile`, `mac` incl. `report`,
   `status`, `audit`, `diagnose`, `backup`, `restore`, `--interactive`) is
-  implemented as of this point.
+  implemented.
 - CA private keys stay on the deployment host by default (`/etc/cyferio/pki`,
   `0700` root-owned) for install simplicity; see
   [SECURITY.md](SECURITY.md) for the documented offline-CA option for
   high-security deployments.
+
+### Known limitations
+
+- Cloud provider detection (`network detect`) has been validated against a
+  real instance only on GCP; AWS, OVH, Contabo, and Hetzner detection
+  logic is covered by unit tests against mocked metadata responses only,
+  not yet confirmed on real instances of those providers.
+- Every integration-test VM run so far has used Ubuntu 22.04 LTS; Ubuntu
+  24.04 LTS and Debian 12 (both named in the test matrix) haven't been
+  exercised on real hardware yet.
+- No second VPN backend (e.g. WireGuard) exists yet — `lib/backends/openvpn.sh`
+  is the only implementation of the backend interface described in
+  [docs/architecture/00-overview.md](docs/architecture/00-overview.md).
