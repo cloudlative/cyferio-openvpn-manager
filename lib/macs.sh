@@ -177,3 +177,137 @@ cmd_mac() {
       ;;
   esac
 }
+
+# --- Phase 7: connection-time enforcement --------------------------------
+# Invoked by templates/client-connect.sh.tmpl / client-disconnect.sh.tmpl
+# (installed to /etc/cyferio/hooks/, run by the OpenVPN daemon as
+# `nobody:nogroup` on every connect/disconnect — see
+# docs/architecture/04-mac-validation.md). Never called by an operator
+# directly; reached only via `cyferio-vpn internal mac-check|disconnect-log`
+# (cmd_internal below, dispatched from core_dispatch's `internal` case).
+#
+# mac_check_connection never die()s — an uncaught failure here must not
+# crash the hook (and thus every connection attempt) with a stack dump;
+# every branch is an explicit return so the caller's exit code is always
+# a deliberate accept(0)/reject(1) decision. Each branch also writes its
+# own audit_logs row directly (not via the mac_add/remove auditing in
+# cmd_mac above) since 'the connecting user' is the actor here, not
+# whoever ran a `cyferio-vpn mac ...` command.
+
+# mac_check_connection COMMON_NAME [PEER_MAC] — prints "ACCEPT <reason>"
+# or "REJECT <reason>" to stdout and returns 0/1 to match. PEER_MAC is
+# OpenVPN's client-supplied IV_HWADDR peer-info — see 04-mac-validation.md's
+# Limitations note: not cryptographically verified, policy enforcement
+# only. A malformed/missing PEER_MAC is treated identically to no MAC at
+# all, never as a crash or a free pass.
+mac_check_connection() {
+  local common_name="${1:-}" mac="${2:-}"
+  local reason
+
+  if [[ -n "${mac}" ]] && validate_mac "${mac}"; then
+    mac="$(normalize_mac "${mac}")"
+  else
+    mac=""
+  fi
+
+  if [[ -z "${common_name}" ]]; then
+    reason="no_common_name"
+    db_audit_log "auth.mac_reject" "unknown" "$(jq -nc --arg reason "${reason}" '{reason:$reason}')" 2>/dev/null || true
+    echo "REJECT ${reason}"
+    return 1
+  fi
+
+  local row
+  row="$(db_user_get "${common_name}")" 2>/dev/null || row=""
+  if [[ -z "${row}" ]]; then
+    reason="unknown_user"
+    db_audit_log "auth.mac_reject" "${common_name}" "$(jq -nc --arg reason "${reason}" '{reason:$reason}')" 2>/dev/null || true
+    echo "REJECT ${reason}"
+    return 1
+  fi
+
+  local user_id _uname status _profile _created _updated
+  IFS='|' read -r user_id _uname status _profile _created _updated <<<"${row}"
+
+  if [[ "${status}" != "active" ]]; then
+    reason="user_${status}"
+    db_audit_log "auth.mac_reject" "${common_name}" "$(jq -nc --arg reason "${reason}" '{reason:$reason}')" 2>/dev/null || true
+    echo "REJECT ${reason}"
+    return 1
+  fi
+
+  local rows registered_count=0
+  rows="$(db_mac_list "${user_id}")" 2>/dev/null || rows=""
+  if [[ -n "${rows}" ]]; then
+    registered_count="$(wc -l <<<"${rows}")"
+  fi
+
+  # No MAC ever registered for this user — nothing to enforce yet
+  # (matches mac_add's own "no restriction until you add one" model).
+  if [[ "${registered_count}" -eq 0 ]]; then
+    reason="no_mac_policy"
+    db_audit_log "auth.mac_accept" "${common_name}" "$(jq -nc --arg reason "${reason}" '{reason:$reason}')" 2>/dev/null || true
+    echo "ACCEPT ${reason}"
+    return 0
+  fi
+
+  if [[ -z "${mac}" ]]; then
+    local mode
+    mode="$(config_get mac_enforcement_mode)"
+    [[ -n "${mode}" ]] || mode="strict"
+    if [[ "${mode}" == "permissive" ]]; then
+      reason="mac_unavailable_permissive"
+      db_audit_log "auth.mac_unavailable" "${common_name}" "$(jq -nc --arg reason "${reason}" '{reason:$reason}')" 2>/dev/null || true
+      echo "ACCEPT ${reason}"
+      return 0
+    fi
+    reason="mac_unavailable_strict"
+    db_audit_log "auth.mac_unavailable" "${common_name}" "$(jq -nc --arg reason "${reason}" '{reason:$reason}')" 2>/dev/null || true
+    echo "REJECT ${reason}"
+    return 1
+  fi
+
+  if grep -qxF "${mac}" <(cut -d'|' -f1 <<<"${rows}"); then
+    reason="mac_match"
+    db_audit_log "auth.mac_accept" "${common_name}" "$(jq -nc --arg reason "${reason}" --arg mac "${mac}" '{reason:$reason, mac:$mac}')" 2>/dev/null || true
+    echo "ACCEPT ${reason}"
+    return 0
+  fi
+
+  reason="mac_mismatch"
+  db_audit_log "auth.mac_reject" "${common_name}" "$(jq -nc --arg reason "${reason}" --arg mac "${mac}" '{reason:$reason, mac:$mac}')" 2>/dev/null || true
+  echo "REJECT ${reason}"
+  return 1
+}
+
+# mac_log_disconnect COMMON_NAME [PEER_MAC] [DURATION_SECONDS] — audit
+# trail only, per 04-mac-validation.md ("no enforcement action"); always
+# succeeds from the hook's point of view.
+mac_log_disconnect() {
+  local common_name="${1:-unknown}" mac="${2:-}" duration="${3:-}"
+  db_audit_log "session.disconnect" "${common_name}" "$(jq -nc --arg mac "${mac}" --arg duration "${duration}" '{mac:$mac, duration_seconds:$duration}')" 2>/dev/null || true
+}
+
+# cmd_internal — dispatcher for the hook-only plumbing commands above.
+# Deliberately not documented in core_usage: this is not operator-facing.
+cmd_internal() {
+  local subcommand="${1:-}"
+  shift || true
+  case "${subcommand}" in
+    mac-check)
+      if mac_check_connection "$@"; then
+        exit 0
+      else
+        exit 1
+      fi
+      ;;
+    disconnect-log)
+      mac_log_disconnect "$@" || true
+      exit 0
+      ;;
+    *)
+      echo "cyferio-vpn: unknown internal subcommand '${subcommand}'" >&2
+      exit 1
+      ;;
+  esac
+}

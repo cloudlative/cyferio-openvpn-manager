@@ -27,10 +27,32 @@ db_path() {
 # db_ensure_dir — create the data directory with restrictive permissions if
 # it doesn't exist yet. Idempotent: re-asserts perms on every call so drift
 # gets corrected, not just set once at first install.
+#
+# Root-only 0750 by default — EXCEPT this function runs on every single
+# db_exec/db_query call (i.e. on every CLI command, not just `install`),
+# so a flat unconditional 0750 here would silently re-clobber
+# db_grant_group_access's 0770 (Phase 7 — the dropped-privilege hook
+# needs directory write access too, to create SQLite's journal/WAL file)
+# the very next time any unrelated command (e.g. `user add`) happened to
+# touch the DB after install. Detect that grant by the dir's OWN CURRENT
+# MODE (already 0770 means db_grant_group_access has run) rather than by
+# group name — a group-name check (e.g. "still root") gives a false
+# positive under a non-root dev/test run, where the OS-assigned default
+# group is the invoking user's own group, never literally "root" — and
+# preserve it instead of blindly reasserting 0750. Found via a real
+# Phase 7 bug: the hook worked immediately after `install` but started
+# failing with "attempt to write a readonly database" as soon as any
+# other command ran in between.
 db_ensure_dir() {
   local dir="${CYFERIO_DATA_DIR}"
   mkdir -p "${dir}"
-  chmod 0750 "${dir}" 2>/dev/null || true
+  local current_mode
+  current_mode="$(stat -c '%a' "${dir}" 2>/dev/null || echo "")"
+  if [[ "${current_mode}" == "770" ]]; then
+    chmod 0770 "${dir}" 2>/dev/null || true
+  else
+    chmod 0750 "${dir}" 2>/dev/null || true
+  fi
 }
 
 # db_exec SQL — run one or more statements with no result output expected.
@@ -176,4 +198,28 @@ db_mac_find_owner() {
 # db_schema_version — highest applied migration version, or empty if none.
 db_schema_version() {
   db_query "SELECT MAX(version) FROM schema_migrations;" 2>/dev/null || true
+}
+
+# db_grant_group_access GROUP — re-group the data dir and DB file for
+# group read/write, on top of the root-only 0750/0600 db_ensure_dir/
+# db_migrate set by default. Generic (takes the group as a param) rather
+# than hardcoding "nobody"/"nogroup" here: it's the OpenVPN backend's
+# install flow (Phase 7 — see lib/backends/openvpn.sh's client-connect
+# hook) that knows a dropped-privilege daemon user needs to read/write
+# audit_logs and user_macs via `cyferio-vpn internal mac-check`; this
+# module stays backend-agnostic and only does the chgrp/chmod mechanics.
+# Same posture already accepted for /var/log/cyferio in Phase 5 — the
+# trade-off (that group beyond root can now write ANY table, not just
+# audit_logs) is documented in docs/architecture/09-security-review.md.
+db_grant_group_access() {
+  local group="$1"
+  db_ensure_dir
+  chgrp "${group}" "${CYFERIO_DATA_DIR}" 2>/dev/null || true
+  chmod 0770 "${CYFERIO_DATA_DIR}" 2>/dev/null || true
+  local dbfile
+  dbfile="$(db_path)"
+  if [[ -f "${dbfile}" ]]; then
+    chgrp "${group}" "${dbfile}" 2>/dev/null || true
+    chmod 0660 "${dbfile}" 2>/dev/null || true
+  fi
 }

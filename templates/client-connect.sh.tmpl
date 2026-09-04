@@ -2,18 +2,37 @@
 # Installed to /etc/cyferio/hooks/client-connect.sh, invoked by OpenVPN's
 # `client-connect` directive on every connection attempt (script-security 2).
 #
-# Phase 2 stub: accept-and-log only. MAC-address enforcement against
-# user_macs (via IV_HWADDR peer-info, since the client profile sets
-# push-peer-info) lands in Phase 7 — see docs/architecture/04-mac-validation.md.
-# This stub exists so the server can start and accept connections before
-# that phase is built, without silently having no client-connect at all.
+# Phase 7: delegates the actual accept/reject decision to
+# `cyferio-vpn internal mac-check`, which checks $common_name (the
+# client's cert CN, i.e. the Cyferio username) and $IV_HWADDR (client-
+# supplied peer-info, populated because the profile sets push-peer-info)
+# against the user_macs table — see
+# docs/architecture/04-mac-validation.md. This script itself does no
+# database access; it only runs the CLI (as `nobody`, same as this
+# script) and relays its exit code.
 set -u
 
-# Group-wrapped so a permission-denied opening the log file (the daemon
-# runs as `nobody`, and /var/log/cyferio is 0750 root:root) is swallowed
+CYFERIO_BIN="__CYFERIO_BIN__"
+
+# Group-wrapped so a permission-denied opening the log file is swallowed
 # by this 2>/dev/null too — an un-grouped `cmd >>file 2>/dev/null` still
 # leaks that specific error to OpenVPN's own log, because the failing
 # open happens before the command's own stderr redirect takes effect.
-{ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) [INFO] [session.connect] common_name=${common_name:-unknown} mac=${IV_HWADDR:-unavailable}" >>/var/log/cyferio/cyferio.log; } 2>/dev/null || true
+_log() {
+  { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) [INFO] [session.connect] common_name=${common_name:-unknown} mac=${IV_HWADDR:-unavailable} decision=$1" >>/var/log/cyferio/cyferio.log; } 2>/dev/null || true
+}
 
-exit 0
+# stderr discarded: the banner core_banner() prints on every invocation,
+# plus any config-load warnings, would otherwise leak into OpenVPN's own
+# log on every single connection attempt. The mac-check subcommand's own
+# stdout is the one-line "ACCEPT <reason>"/"REJECT <reason>" we log below;
+# its exit code (not this decision string) is the actual accept/reject
+# signal, checked explicitly rather than relied on via set -e (this hook
+# doesn't run under -e at all, deliberately, so a failure here can never
+# abort mid-script without at least attempting to log something first).
+decision="$("${CYFERIO_BIN}" internal mac-check "${common_name:-}" "${IV_HWADDR:-}" 2>/dev/null)"
+rc=$?
+
+_log "${decision:-no_response}"
+
+exit "${rc}"

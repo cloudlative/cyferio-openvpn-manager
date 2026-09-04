@@ -4,8 +4,16 @@
 # docs/architecture/04-mac-validation.md).
 set -u
 
+CYFERIO_BIN="__CYFERIO_BIN__"
+
 # See client-connect.sh.tmpl for why this needs to be group-wrapped
 # rather than a plain `>>file 2>/dev/null`.
 { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) [INFO] [session.disconnect] common_name=${common_name:-unknown} duration=${time_duration:-unknown}s" >>/var/log/cyferio/cyferio.log; } 2>/dev/null || true
+
+# Best-effort audit_logs row too (see client-connect.sh.tmpl for why
+# stderr is discarded here). Never affects this hook's own exit code —
+# OpenVPN doesn't act on client-disconnect's exit status, but stay
+# well-behaved regardless.
+"${CYFERIO_BIN}" internal disconnect-log "${common_name:-}" "${IV_HWADDR:-}" "${time_duration:-}" >/dev/null 2>&1 || true
 
 exit 0

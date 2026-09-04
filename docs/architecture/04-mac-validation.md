@@ -44,6 +44,20 @@ OpenVPN's `client-connect` script (set via `script-security 2` + `client-connect
 
 If the client's OS/OpenVPN version does not supply a MAC in peer-info at all, the hook logs `auth.mac_unavailable` and — per an installer-time policy setting (`config/cyferio.conf.example`: `mac_enforcement_mode=strict|permissive`) — either rejects (`strict`, default once a user has ≥1 MAC registered) or allows-and-logs (`permissive`, e.g. during initial rollout).
 
+**Verified against a real client (Phase 7):** the standard Linux `openvpn` CLI client (2.5.11, Ubuntu 22.04) does NOT populate `IV_HWADDR` even with `push-peer-info` set — that key is populated by GUI/managed clients (OpenVPN Connect, the mobile apps) that have direct access to device hardware info, not the bare community daemon. So on a typical Linux/CLI deployment, every connection lands on the `mac_unavailable_*` branch above, not `mac_match`/`mac_mismatch` — MAC enforcement in practice is mostly useful where OpenVPN Connect or an equivalent managed client is mandated. This doesn't change the design (the fallback policy exists for exactly this case) but is worth knowing before setting `mac_enforcement_mode=strict` as a hard requirement.
+
 ## `client-disconnect`
 
 Logs `session.disconnect` (username, MAC, duration) to `audit_logs` — no enforcement action, purely for the audit trail `cyferio-vpn audit`/`diagnose` and `mac report`'s "Status" column read from.
+
+## Implementation (Phase 7)
+
+`client-connect.sh`/`client-disconnect.sh` (installed 0755, running as `nobody:nogroup`) don't touch the database themselves — they shell out to `cyferio-vpn internal mac-check`/`internal disconnect-log` (undocumented, hook-only subcommands — see `lib/macs.sh`'s `mac_check_connection`/`mac_log_disconnect`/`cmd_internal`), which:
+
+1. Rejects immediately if `$common_name` doesn't match a known user (`unknown_user`), or the user's `status` isn't `active` (`user_<status>` — this is where a `user disable`d account actually stops connecting, since disabling alone only flips a DB column and doesn't touch the still-valid certificate).
+2. Accepts unconditionally if the user has zero MACs registered (`no_mac_policy`) — MAC binding is opt-in per user, not a blanket requirement.
+3. Otherwise requires `$IV_HWADDR` (normalized/validated the same way `mac add` does; malformed peer-info is treated as absent, never as a crash or a free pass) to exactly match one of the user's registered MACs (`mac_match`/`mac_mismatch`), or — if peer-info is absent entirely — falls back to `mac_enforcement_mode` (`mac_unavailable_strict` rejects, `mac_unavailable_permissive` accepts-and-logs).
+
+Every branch writes its own `audit_logs` row (`auth.mac_accept`/`auth.mac_reject`/`auth.mac_unavailable`, actor = the connecting username) in addition to the flat-file line the hook script itself appends to `/var/log/cyferio/cyferio.log`.
+
+This requires the dropped-privilege `nobody:nogroup` daemon user to read `users`/`user_macs` and write `audit_logs` directly — `install` re-groups `/var/lib/cyferio` and `cyferio.db` to `nogroup` (`0770`/`0660`) for this, the same trade-off already made for the log directory in Phase 5. See [09-security-review.md](09-security-review.md) for the documented posture.

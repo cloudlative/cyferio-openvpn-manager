@@ -95,6 +95,11 @@ cmd_install() {
 
   echo "Initializing database..."
   db_migrate
+  # Phase 7: the client-connect/-disconnect hooks run as the OpenVPN
+  # daemon's dropped-privilege user (server.conf's `user nobody` / `group
+  # nogroup`) and need to read user_macs and write audit_logs directly —
+  # see lib/database.sh:db_grant_group_access and 09-security-review.md.
+  db_grant_group_access nogroup
 
   _install_write_default_config
 

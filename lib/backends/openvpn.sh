@@ -150,8 +150,10 @@ ovpn_export_crl() {
   install -m 0644 "${pki_dir}/crl.pem" "${OVPN_CRL_PATH}"
 }
 
-# ovpn_install_hooks — render the client-connect/-disconnect stubs (Phase 2:
-# accept-and-log; Phase 7 replaces the logic in place, same file paths).
+# ovpn_install_hooks — render the client-connect/-disconnect hooks (Phase 2:
+# accept-and-log stub; Phase 7: real MAC enforcement, same file paths,
+# delegating to `cyferio-vpn internal mac-check` — see
+# docs/architecture/04-mac-validation.md).
 #
 # Installed 0755 (root-owned, world-executable), NOT 0700: the daemon
 # invokes these as `nobody:nogroup` (server.conf's `user nobody` /
@@ -186,8 +188,20 @@ ovpn_install_hooks() {
   chgrp nogroup "${CYFERIO_LOG_DIR}/cyferio.log" 2>/dev/null || true
   chmod 0660 "${CYFERIO_LOG_DIR}/cyferio.log"
 
-  install -m 0755 "${template_dir}/client-connect.sh.tmpl" "${hooks_dir}/client-connect.sh"
-  install -m 0755 "${template_dir}/client-disconnect.sh.tmpl" "${hooks_dir}/client-disconnect.sh"
+  # The hooks invoke `cyferio-vpn internal mac-check`/`disconnect-log`
+  # themselves (Phase 7) — bake in the real path to this checkout's own
+  # bin/cyferio-vpn (CYFERIO_ROOT_DIR is set by bin/cyferio-vpn to
+  # wherever it's actually running from, dev-in-place or installed, so
+  # this is always correct without guessing $PATH at hook-execution time
+  # — the hook runs as `nobody`, which may not even share root's PATH).
+  local cyferio_bin="${CYFERIO_ROOT_DIR}/bin/cyferio-vpn"
+  sed -e "s|__CYFERIO_BIN__|${cyferio_bin}|g" \
+    "${template_dir}/client-connect.sh.tmpl" >"${hooks_dir}/client-connect.sh.new"
+  sed -e "s|__CYFERIO_BIN__|${cyferio_bin}|g" \
+    "${template_dir}/client-disconnect.sh.tmpl" >"${hooks_dir}/client-disconnect.sh.new"
+  mv "${hooks_dir}/client-connect.sh.new" "${hooks_dir}/client-connect.sh"
+  mv "${hooks_dir}/client-disconnect.sh.new" "${hooks_dir}/client-disconnect.sh"
+  chmod 0755 "${hooks_dir}/client-connect.sh" "${hooks_dir}/client-disconnect.sh"
   log_info "install.hooks" "result=success"
 }
 

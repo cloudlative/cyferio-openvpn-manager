@@ -132,6 +132,13 @@ core_dispatch() {
       shift
       cmd_mac "$@"
       ;;
+    internal)
+      # Plumbing for the installed client-connect/-disconnect hooks
+      # (invoked as `nobody`, never by an operator) — deliberately absent
+      # from core_usage's Commands list. See lib/macs.sh:cmd_internal.
+      shift
+      cmd_internal "$@"
+      ;;
     status|audit|diagnose|backup|restore)
       echo "cyferio-vpn: '${cmd}' is not implemented yet (coming in a later phase)" >&2
       exit 2

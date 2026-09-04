@@ -78,10 +78,11 @@ user_remove() {
   ui_ok "User '${username}' removed (certificate revoked, profile deleted)."
 }
 
-# user_enable/user_disable are DB-level bookkeeping only in this phase —
-# they do not touch the certificate. Live connection-time enforcement of
-# a disabled user (rejecting their still-valid cert at connect) is part
-# of Phase 7's client-connect hook work, not Phase 4's.
+# user_enable/user_disable are DB-level bookkeeping only — they do not
+# touch the certificate. Live connection-time enforcement of a disabled
+# user (rejecting their still-valid cert at connect) is handled by
+# lib/macs.sh:mac_check_connection (Phase 7), not here: it reads this
+# same `status` column on every connection attempt.
 user_disable() {
   local username="${1:-}"
   [[ -n "${username}" ]] || die "usage: cyferio-vpn user disable USERNAME" 1

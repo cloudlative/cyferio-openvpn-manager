@@ -101,3 +101,91 @@ setup() {
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.username == "john" and .mac_addresses[0].mac_address == "AA:BB:CC:DD:EE:01"' >/dev/null
 }
+
+# --- Phase 7: mac_check_connection / cmd_internal ------------------------
+# db_user_get from the outer setup() only knows john/sara; extend it here
+# with an active user who HAS a registered MAC (dave) and a disabled one
+# (mia), so enforcement branches can be exercised independently of the
+# add/remove/update tests above.
+
+@test "mac_check_connection rejects when common_name is empty" {
+  run mac_check_connection "" "AA:BB:CC:DD:EE:01"
+  [ "$status" -ne 0 ]
+  [[ "$output" == "REJECT no_common_name" ]]
+}
+
+@test "mac_check_connection rejects an unknown common_name" {
+  run mac_check_connection "ghost" "AA:BB:CC:DD:EE:01"
+  [ "$status" -ne 0 ]
+  [[ "$output" == "REJECT unknown_user" ]]
+}
+
+@test "mac_check_connection rejects a disabled user" {
+  db_user_get() { [[ "$1" == "mia" ]] && echo "4|mia|disabled||2026-01-01 00:00:00|2026-01-01 00:00:00"; }
+  run mac_check_connection "mia" "AA:BB:CC:DD:EE:01"
+  [ "$status" -ne 0 ]
+  [[ "$output" == "REJECT user_disabled" ]]
+}
+
+@test "mac_check_connection accepts a user with no MACs registered (no policy set)" {
+  db_mac_list() { :; }
+  run mac_check_connection "john" ""
+  [ "$status" -eq 0 ]
+  [[ "$output" == "ACCEPT no_mac_policy" ]]
+}
+
+@test "mac_check_connection accepts on an exact MAC match" {
+  db_user_get() { [[ "$1" == "dave" ]] && echo "3|dave|active||2026-01-01 00:00:00|2026-01-01 00:00:00"; }
+  db_mac_list() { printf 'AA:BB:CC:DD:EE:05|2026-01-01 00:00:00\n'; }
+  run mac_check_connection "dave" "aa:bb:cc:dd:ee:05"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "ACCEPT mac_match" ]]
+}
+
+@test "mac_check_connection rejects a MAC that doesn't match any registered MAC" {
+  db_user_get() { [[ "$1" == "dave" ]] && echo "3|dave|active||2026-01-01 00:00:00|2026-01-01 00:00:00"; }
+  db_mac_list() { printf 'AA:BB:CC:DD:EE:05|2026-01-01 00:00:00\n'; }
+  run mac_check_connection "dave" "AA:BB:CC:DD:EE:99"
+  [ "$status" -ne 0 ]
+  [[ "$output" == "REJECT mac_mismatch" ]]
+}
+
+@test "mac_check_connection rejects a missing peer MAC in strict mode (default)" {
+  db_user_get() { [[ "$1" == "dave" ]] && echo "3|dave|active||2026-01-01 00:00:00|2026-01-01 00:00:00"; }
+  db_mac_list() { printf 'AA:BB:CC:DD:EE:05|2026-01-01 00:00:00\n'; }
+  run mac_check_connection "dave" ""
+  [ "$status" -ne 0 ]
+  [[ "$output" == "REJECT mac_unavailable_strict" ]]
+}
+
+@test "mac_check_connection accepts a missing peer MAC in permissive mode" {
+  CYFERIO_CFG[mac_enforcement_mode]=permissive
+  db_user_get() { [[ "$1" == "dave" ]] && echo "3|dave|active||2026-01-01 00:00:00|2026-01-01 00:00:00"; }
+  db_mac_list() { printf 'AA:BB:CC:DD:EE:05|2026-01-01 00:00:00\n'; }
+  run mac_check_connection "dave" ""
+  [ "$status" -eq 0 ]
+  [[ "$output" == "ACCEPT mac_unavailable_permissive" ]]
+}
+
+@test "mac_check_connection treats a malformed peer MAC the same as unavailable" {
+  db_user_get() { [[ "$1" == "dave" ]] && echo "3|dave|active||2026-01-01 00:00:00|2026-01-01 00:00:00"; }
+  db_mac_list() { printf 'AA:BB:CC:DD:EE:05|2026-01-01 00:00:00\n'; }
+  run mac_check_connection "dave" "not-a-mac"
+  [ "$status" -ne 0 ]
+  [[ "$output" == "REJECT mac_unavailable_strict" ]]
+}
+
+@test "cmd_internal mac-check exits 0 on accept and 1 on reject" {
+  db_mac_list() { :; }
+  run cmd_internal mac-check john ""
+  [ "$status" -eq 0 ]
+
+  run cmd_internal mac-check ghost ""
+  [ "$status" -eq 1 ]
+}
+
+@test "cmd_internal rejects an unknown subcommand" {
+  run cmd_internal bogus
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"unknown internal subcommand"* ]]
+}

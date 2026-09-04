@@ -11,7 +11,15 @@ if [[ -n "${__CYFERIO_CONFIG_LOADED:-}" ]]; then
 fi
 __CYFERIO_CONFIG_LOADED=1
 
-declare -A CYFERIO_CFG=(
+# -g (not just -A): this file is always sourced from inside a function in
+# bin/cyferio-vpn's dependency-order loop, and `declare` without -g makes
+# the declaration local to whatever function is currently executing —
+# harmless there since that loop runs at the script's top level, but a
+# latent trap for any test harness that sources modules from inside its
+# own setup() function (bats does): CYFERIO_CFG would silently vanish the
+# moment setup() returned, before the actual test body ran. Found via
+# tests/unit/macs.bats's Phase 7 mac_enforcement_mode tests.
+declare -gA CYFERIO_CFG=(
   [vpn_port]=1194
   [vpn_proto]=udp
   [vpn_subnet]=10.8.0.0
