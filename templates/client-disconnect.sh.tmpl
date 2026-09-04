@@ -4,6 +4,8 @@
 # docs/architecture/04-mac-validation.md).
 set -u
 
-echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) [INFO] [session.disconnect] common_name=${common_name:-unknown} duration=${time_duration:-unknown}s" >>/var/log/cyferio/cyferio.log 2>/dev/null || true
+# See client-connect.sh.tmpl for why this needs to be group-wrapped
+# rather than a plain `>>file 2>/dev/null`.
+{ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) [INFO] [session.disconnect] common_name=${common_name:-unknown} duration=${time_duration:-unknown}s" >>/var/log/cyferio/cyferio.log; } 2>/dev/null || true
 
 exit 0

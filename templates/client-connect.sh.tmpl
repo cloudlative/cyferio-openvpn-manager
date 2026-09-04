@@ -9,6 +9,11 @@
 # that phase is built, without silently having no client-connect at all.
 set -u
 
-echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) [INFO] [session.connect] common_name=${common_name:-unknown} mac=${IV_HWADDR:-unavailable}" >>/var/log/cyferio/cyferio.log 2>/dev/null || true
+# Group-wrapped so a permission-denied opening the log file (the daemon
+# runs as `nobody`, and /var/log/cyferio is 0750 root:root) is swallowed
+# by this 2>/dev/null too — an un-grouped `cmd >>file 2>/dev/null` still
+# leaks that specific error to OpenVPN's own log, because the failing
+# open happens before the command's own stderr redirect takes effect.
+{ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) [INFO] [session.connect] common_name=${common_name:-unknown} mac=${IV_HWADDR:-unavailable}" >>/var/log/cyferio/cyferio.log; } 2>/dev/null || true
 
 exit 0

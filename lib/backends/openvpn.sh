@@ -152,6 +152,15 @@ ovpn_export_crl() {
 
 # ovpn_install_hooks — render the client-connect/-disconnect stubs (Phase 2:
 # accept-and-log; Phase 7 replaces the logic in place, same file paths).
+#
+# Installed 0755 (root-owned, world-executable), NOT 0700: the daemon
+# invokes these as `nobody:nogroup` (server.conf's `user nobody` /
+# `group nogroup`, dropped before any client connects), so a root-only
+# mode makes every connection fail with a silent-looking AUTH_FAILED —
+# OpenVPN logs "could not execute external program" server-side, but the
+# client just sees an auth failure with no indication it was a
+# permissions problem on the hook script. Still root-owned/writable only
+# by root — these scripts carry no secrets, only log lines.
 ovpn_install_hooks() {
   require_root
   local hooks_dir template_dir
@@ -159,8 +168,26 @@ ovpn_install_hooks() {
   template_dir="${CYFERIO_ROOT_DIR}/templates"
   mkdir -p "${hooks_dir}"
 
-  install -m 0700 "${template_dir}/client-connect.sh.tmpl" "${hooks_dir}/client-connect.sh"
-  install -m 0700 "${template_dir}/client-disconnect.sh.tmpl" "${hooks_dir}/client-disconnect.sh"
+  # The hooks also need to actually be able to WRITE their audit-trail
+  # log line, not just execute — /var/log/cyferio is 0750 root:root by
+  # default (07-logging.md), which the daemon's dropped-privilege
+  # `nobody:nogroup` can't write into. Re-group it to `nogroup` (the
+  # group server.conf's `group nogroup` directive actually drops to) and
+  # make it group-writable, rather than leaving connect/disconnect
+  # events silently undocumented in the log.
+  mkdir -p "${CYFERIO_LOG_DIR}"
+  chgrp nogroup "${CYFERIO_LOG_DIR}" 2>/dev/null || true
+  chmod 0770 "${CYFERIO_LOG_DIR}"
+  # The directory bit alone isn't enough for a file that already exists
+  # (root-created log entries from earlier install steps land as 0644,
+  # not group-writable) — fix the file's own mode/group too, creating it
+  # first if this is a fresh install.
+  touch "${CYFERIO_LOG_DIR}/cyferio.log"
+  chgrp nogroup "${CYFERIO_LOG_DIR}/cyferio.log" 2>/dev/null || true
+  chmod 0660 "${CYFERIO_LOG_DIR}/cyferio.log"
+
+  install -m 0755 "${template_dir}/client-connect.sh.tmpl" "${hooks_dir}/client-connect.sh"
+  install -m 0755 "${template_dir}/client-disconnect.sh.tmpl" "${hooks_dir}/client-disconnect.sh"
   log_info "install.hooks" "result=success"
 }
 
@@ -276,17 +303,34 @@ vpn_backend_connected_clients() {
 # easyrsa directly.
 
 # vpn_backend_provision_client NAME — issue a client certificate. Errors
-# clearly (not silently) if one already exists for this name — re-issuing
-# requires an explicit revoke first, matching "profile regenerate"'s
-# eventual revoke-then-reissue flow (Phase 5), not a silent overwrite.
+# clearly (not silently) if a currently-VALID certificate already exists
+# for this name. If a PRIOR certificate for this name was revoked,
+# archives the old issued/private/req files (timestamped, kept for audit
+# — never deleted) rather than blocking: easyrsa's gen-req refuses to run
+# if those files are still present, and Phase 5's "profile regenerate"
+# needs to reissue under the same name after revoking the old cert.
 vpn_backend_provision_client() {
   local name="$1"
   local pki_dir
   pki_dir="$(ovpn_pki_dir)"
   [[ -f "${pki_dir}/ca.crt" ]] || die "PKI not initialized — run 'cyferio-vpn install' first" 3
+
   if [[ -f "${pki_dir}/issued/${name}.crt" ]]; then
-    die "a certificate for '${name}' already exists (see 'cyferio-vpn cert status ${name}')" 1
+    local cert_line cert_status
+    cert_line="$(vpn_backend_list_clients | awk -F'|' -v n="${name}" '$5==n')"
+    cert_status="${cert_line%%|*}"
+    if [[ "${cert_status}" == "R" ]]; then
+      local ts
+      ts="$(date -u +%Y%m%d%H%M%S)"
+      mv "${pki_dir}/issued/${name}.crt" "${pki_dir}/issued/${name}.revoked-${ts}.crt"
+      [[ -f "${pki_dir}/private/${name}.key" ]] && mv "${pki_dir}/private/${name}.key" "${pki_dir}/private/${name}.revoked-${ts}.key"
+      [[ -f "${pki_dir}/reqs/${name}.req" ]] && mv "${pki_dir}/reqs/${name}.req" "${pki_dir}/reqs/${name}.revoked-${ts}.req"
+      log_info "cert.create" "name=${name} result=archived_prior_revoked ts=${ts}"
+    else
+      die "a certificate for '${name}' already exists (see 'cyferio-vpn cert status ${name}')" 1
+    fi
   fi
+
   _ovpn_easyrsa_env "EASYRSA_REQ_CN=${name}" -- gen-req "${name}" nopass || die "easyrsa gen-req failed for '${name}'" 3
   _ovpn_easyrsa sign-req client "${name}" || die "easyrsa sign-req failed for '${name}'" 3
   chmod 0600 "${pki_dir}/private/${name}.key"
@@ -307,11 +351,37 @@ vpn_backend_revoke_client() {
   log_info "cert.revoke" "name=${name} result=success"
 }
 
-# vpn_backend_list_clients — one line per issued certificate (server cert
-# included), pipe-delimited: status|expiry_iso|revoked_iso|serial|cn.
-# Sourced from EasyRSA's own index.txt — the PKI store is the source of
-# truth here, not the SQLite DB (Phase 3 is explicitly usable without any
-# `users` row existing; Phase 4 wires the two together).
+# ovpn_revoke_if_valid NAME — revoke only if a currently-valid
+# (non-revoked) cert exists; a no-op if never issued or already revoked.
+# Shared by users.sh's user_remove and profiles.sh's profile_regenerate
+# so neither duplicates the "don't re-revoke" check nor risks erroring
+# on an already-revoked cert.
+ovpn_revoke_if_valid() {
+  local name="$1"
+  [[ -f "$(ovpn_pki_dir)/issued/${name}.crt" ]] || return 0
+  local cert_line cert_status
+  cert_line="$(vpn_backend_list_clients | awk -F'|' -v n="${name}" '$5==n')"
+  cert_status="${cert_line%%|*}"
+  if [[ "${cert_status}" != "R" ]]; then
+    vpn_backend_revoke_client "${name}"
+  fi
+}
+
+# vpn_backend_list_clients — one line per DISTINCT name (server cert
+# included), pipe-delimited: status|expiry_iso|revoked_iso|serial|cn,
+# sorted by name. Sourced from EasyRSA's own index.txt — the PKI store is
+# the source of truth here, not the SQLite DB (Phase 3 is explicitly
+# usable without any `users` row existing; Phase 4 wires the two
+# together).
+#
+# A name can appear MORE THAN ONCE in index.txt: Phase 5's "profile
+# regenerate" revokes the old cert and issues a new one under the same
+# CN, appending a second index.txt line rather than replacing the first.
+# The final `awk` pass here collapses that to just the latest entry per
+# name (last line wins — index.txt is append-only/chronological) so
+# every caller (cert_status, ovpn_revoke_if_valid, user lookups, ...)
+# sees current state, not a stale revoked entry from before a
+# regenerate.
 vpn_backend_list_clients() {
   local index
   index="$(ovpn_pki_dir)/index.txt"
@@ -322,7 +392,7 @@ vpn_backend_list_clients() {
   ' "${index}" | while IFS='|' read -r status expiry revoked serial subject; do
     local cn="${subject#*CN=}"
     echo "${status}|$(asn1_to_iso "${expiry}")|$([[ -n "${revoked}" ]] && asn1_to_iso "${revoked}")|${serial}|${cn}"
-  done
+  done | awk -F'|' '{ line[$5] = $0 } END { for (n in line) print line[n] }' | sort -t'|' -k5,5
 }
 
 # _ovpn_public_endpoint — the hostname/IP embedded in exported profiles.
@@ -337,6 +407,36 @@ _ovpn_public_endpoint() {
     return 0
   fi
   curl -fsS -m5 https://ifconfig.me 2>/dev/null || curl -fsS -m5 https://api.ipify.org 2>/dev/null || true
+}
+
+# _ovpn_validate_profile PATH — sanity-check a rendered profile before
+# it's handed to an admin or replaces an existing one: the required
+# directives are present, and every embedded block actually has content
+# (not just an empty pair of tags — e.g. a cat of a truncated/missing
+# key file would otherwise produce a silently-broken profile).
+_ovpn_validate_profile() {
+  local path="$1"
+  local -a errors=()
+
+  grep -q "^client$" "${path}" || errors+=("missing 'client' directive")
+  grep -q "^remote " "${path}" || errors+=("missing 'remote' directive")
+  grep -q "^push-peer-info$" "${path}" || errors+=("missing push-peer-info")
+
+  local tag body_lines
+  for tag in ca cert key tls-crypt; do
+    if ! grep -q "^<${tag}>\$" "${path}" || ! grep -q "^</${tag}>\$" "${path}"; then
+      errors+=("missing <${tag}> block")
+      continue
+    fi
+    body_lines="$(sed -n "/^<${tag}>\$/,/^<\\/${tag}>\$/p" "${path}" | sed '1d;$d' | grep -c .)"
+    if [[ "${body_lines}" -eq 0 ]]; then
+      errors+=("<${tag}> block is empty")
+    fi
+  done
+
+  if [[ ${#errors[@]} -gt 0 ]]; then
+    die "generated profile failed validation: $(printf '%s; ' "${errors[@]}")" 3
+  fi
 }
 
 # vpn_backend_render_profile NAME — fill templates/client.ovpn.tmpl and
@@ -389,6 +489,10 @@ vpn_backend_render_profile() {
     cat "${pki_dir}/ta.key"
     echo "</tls-crypt>"
   } >"${out}.new"
+
+  # Validate before replacing any existing good profile — a bad render
+  # (truncated cert, missing tag) must never overwrite a working one.
+  _ovpn_validate_profile "${out}.new"
 
   mv "${out}.new" "${out}"
   chmod 0600 "${out}"

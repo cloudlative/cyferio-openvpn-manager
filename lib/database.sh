@@ -122,6 +122,11 @@ db_user_set_status() {
   db_exec "UPDATE users SET status = '$(sql_quote "${status}")', updated_at = datetime('now') WHERE username = '$(sql_quote "${username}")';"
 }
 
+db_user_set_profile_path() {
+  local username="$1" profile_path="$2"
+  db_exec "UPDATE users SET profile_path = '$(sql_quote "${profile_path}")', updated_at = datetime('now') WHERE username = '$(sql_quote "${username}")';"
+}
+
 db_user_delete() {
   local username="$1"
   db_exec "DELETE FROM users WHERE username = '$(sql_quote "${username}")';"

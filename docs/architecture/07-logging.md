@@ -34,10 +34,11 @@ Security/user-relevant events (not raw connectivity checks) are additionally wri
     delaycompress
     missingok
     notifempty
-    create 0640 root root
+    create 0660 root nogroup
 }
 ```
+(`create`'s mode/group matches the Permissions section below — a plain `0640 root root` here would silently lose hook write access again on the very first rotation.)
 
 ## Permissions
 
-`/var/log/cyferio/` mode `0750`, owned by `root:root` — logs may contain usernames/MACs (not secrets, but still operationally sensitive), so not world-readable.
+`/var/log/cyferio/` is `0770`, group `nogroup` — not `0750 root:root` as originally planned here. The `client-connect`/`client-disconnect` hooks (Phase 2) run as the OpenVPN daemon's dropped-privilege `nobody:nogroup` (`server.conf`'s `user nobody` / `group nogroup`), and need to append their own connect/disconnect audit lines to `cyferio.log` — a root-only directory silently drops every hook-written log line (caught by real end-to-end VPN-client testing in Phase 5). `cyferio.log` itself is kept `0660` for the same reason. Still not world-readable — `nogroup` is the daemon's own low-privilege group, not "everyone."

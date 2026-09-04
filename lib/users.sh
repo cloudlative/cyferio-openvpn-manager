@@ -58,16 +58,9 @@ user_remove() {
   local _id uname status profile_path created_at updated_at
   IFS='|' read -r _id uname status profile_path created_at updated_at <<<"${row}"
 
-  # Revoke only if a still-valid cert exists — it may already have been
-  # revoked directly via `cert revoke`, and re-revoking would just error.
-  if [[ -f "$(ovpn_pki_dir)/issued/${username}.crt" ]]; then
-    local cert_line cert_status
-    cert_line="$(vpn_backend_list_clients | awk -F'|' -v n="${username}" '$5==n')"
-    cert_status="${cert_line%%|*}"
-    if [[ "${cert_status}" != "R" ]]; then
-      vpn_backend_revoke_client "${username}"
-    fi
-  fi
+  # May already be revoked directly via `cert revoke` — ovpn_revoke_if_valid
+  # is a no-op in that case rather than erroring on a re-revoke.
+  ovpn_revoke_if_valid "${username}"
 
   if [[ -n "${profile_path}" && -f "${profile_path}" ]]; then
     rm -f "${profile_path}"

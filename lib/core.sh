@@ -45,6 +45,7 @@ Commands:
   uninstall [--force]            Remove OpenVPN and all Cyferio state
   cert <create|revoke|list|status> ...   Manage certificates directly
   user <add|remove|enable|disable|get|list> USERNAME [--json]
+  profile <export|regenerate> USERNAME [--force]
   profile <export|regenerate> USERNAME
   mac <add|remove|update|list|report> ...
   status [--json]                Show deployment health
@@ -122,7 +123,11 @@ core_dispatch() {
       shift
       cmd_user "$@"
       ;;
-    profile|mac|status|audit|diagnose|backup|restore)
+    profile)
+      shift
+      cmd_profile "$@"
+      ;;
+    mac|status|audit|diagnose|backup|restore)
       echo "cyferio-vpn: '${cmd}' is not implemented yet (coming in a later phase)" >&2
       exit 2
       ;;
