@@ -35,8 +35,10 @@ fi
 # its own but must load before macs.sh/status.sh, which call its
 # report_table/report_plain; status.sh also needs backends/openvpn.sh
 # (vpn_backend_server_status, ovpn_status_clients) and config.sh
-# (config_get); install.sh composes all of them.
-for module in core logger utils config database network cloud backends/openvpn certs users profiles reporting macs status install; do
+# (config_get); audit.sh/diagnostics.sh need network.sh's checks
+# accumulator plus database.sh/backends/openvpn.sh, all already loaded by
+# this point; install.sh composes all of them.
+for module in core logger utils config database network cloud backends/openvpn certs users profiles reporting macs status audit diagnostics install; do
   # shellcheck source=/dev/null
   source "${LIB_DIR}/${module}.sh"
 done

@@ -50,9 +50,10 @@ teardown() {
 }
 
 @test "recognized-but-unimplemented command exits 2, not a stack dump" {
-  # 'status' was this test's example command through Phase 8; it's real
-  # now (Phase 9), so 'audit' (still a stub) takes over as the example.
-  run "${REPO_ROOT}/bin/cyferio-vpn" audit
+  # 'status' was this test's example command through Phase 8, then
+  # 'audit' through Phase 9 — both real now. 'backup' (still a stub,
+  # Phase 12) takes over as the example.
+  run "${REPO_ROOT}/bin/cyferio-vpn" backup
   [ "$status" -eq 2 ]
   [[ "$output" == *"not implemented yet"* ]]
   [[ "$output" != *"unbound variable"* ]]

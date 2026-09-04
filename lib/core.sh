@@ -143,7 +143,15 @@ core_dispatch() {
       shift
       cmd_status "$@"
       ;;
-    audit|diagnose|backup|restore)
+    audit)
+      shift
+      cmd_audit "$@"
+      ;;
+    diagnose)
+      shift
+      cmd_diagnose "$@"
+      ;;
+    backup|restore)
       echo "cyferio-vpn: '${cmd}' is not implemented yet (coming in a later phase)" >&2
       exit 2
       ;;

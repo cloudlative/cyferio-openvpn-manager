@@ -182,7 +182,12 @@ net_check_port() {
   proto="$(config_get vpn_proto)"
   local flag="-tln"
   [[ "${proto}" == "udp" ]] && flag="-uln"
-  if is_command_available ss && ss ${flag} 2>/dev/null | awk '{print $5}' | grep -q ":${port}\$"; then
+  # Field 4 is Local Address:Port ("State Recv-Q Send-Q Local-Addr Peer-
+  # Addr ..."); field 5 is the PEER address, which for a listening/bound
+  # socket is always "0.0.0.0:*" or "*:*" — grepping field 5 for the
+  # port would (and, until Phase 10 caught it via _diag_check_port_
+  # listening's identical bug, silently did) never match anything.
+  if is_command_available ss && ss ${flag} 2>/dev/null | awk '{print $4}' | grep -q ":${port}\$"; then
     check_add "OpenVPN Port Validation" warning \
       "Port ${port}/${proto} appears already in use." \
       "Choose a different vpn_port in the config, or stop the conflicting service."
