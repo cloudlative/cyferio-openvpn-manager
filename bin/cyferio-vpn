@@ -37,8 +37,10 @@ fi
 # (vpn_backend_server_status, ovpn_status_clients) and config.sh
 # (config_get); audit.sh/diagnostics.sh need network.sh's checks
 # accumulator plus database.sh/backends/openvpn.sh, all already loaded by
-# this point; install.sh composes all of them.
-for module in core logger utils config database network cloud backends/openvpn certs users profiles reporting macs status audit diagnostics install; do
+# this point; backup.sh needs diagnostics.sh's diagnose_run (post-restore
+# health check) and must load before install.sh, whose cmd_uninstall
+# calls backup.sh's backup_run; install.sh composes all of them.
+for module in core logger utils config database network cloud backends/openvpn certs users profiles reporting macs status audit diagnostics backup install; do
   # shellcheck source=/dev/null
   source "${LIB_DIR}/${module}.sh"
 done

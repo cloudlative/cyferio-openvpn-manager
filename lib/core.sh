@@ -53,7 +53,7 @@ Commands:
   audit [--json]                 Run security/config audit
   diagnose [--json]              Run connectivity/troubleshooting checks
   backup                         Create a timestamped backup archive
-  restore <archive>              Restore from a backup archive
+  restore <archive> [--force]    Restore from a backup archive
   network detect [--json]        Detect cloud provider and validate networking
   version                        Print version
   help                           Show this help
@@ -151,9 +151,13 @@ core_dispatch() {
       shift
       cmd_diagnose "$@"
       ;;
-    backup|restore)
-      echo "cyferio-vpn: '${cmd}' is not implemented yet (coming in a later phase)" >&2
-      exit 2
+    backup)
+      shift
+      cmd_backup "$@"
+      ;;
+    restore)
+      shift
+      cmd_restore "$@"
       ;;
     *)
       echo "cyferio-vpn: unknown command '${cmd}'" >&2

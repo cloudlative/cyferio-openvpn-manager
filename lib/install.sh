@@ -23,35 +23,6 @@ _install_write_default_config() {
   log_info "install.config" "result=created"
 }
 
-# _install_pre_uninstall_backup — minimal tar of PKI/server-config/DB,
-# spec-mandated to run automatically before every uninstall. The full
-# `cyferio-vpn backup` command (with MANIFEST.json, profiles, etc.) is
-# Phase 12 — this is the small subset needed so uninstall is never
-# destructive without a recovery point in the meantime.
-_install_pre_uninstall_backup() {
-  local backup_dir="/var/backups/cyferio"
-  local ts archive
-  ts="$(date -u +%Y%m%d-%H%M%S)"
-  archive="${backup_dir}/pre-uninstall-${ts}.tar.gz"
-  mkdir -p "${backup_dir}"
-  chmod 0700 "${backup_dir}"
-
-  local -a items=()
-  [[ -d "${CYFERIO_CONF_DIR}" ]] && items+=("${CYFERIO_CONF_DIR}")
-  [[ -d /etc/openvpn/server ]] && items+=(/etc/openvpn/server)
-  [[ -f "$(db_path)" ]] && items+=("$(db_path)")
-
-  if [[ ${#items[@]} -eq 0 ]]; then
-    log_info "uninstall.backup" "result=skipped_nothing_to_back_up"
-    return 0
-  fi
-
-  tar -czf "${archive}" "${items[@]}" 2>/dev/null
-  chmod 0600 "${archive}"
-  log_info "uninstall.backup" "result=success" "archive=${archive}"
-  echo "${archive}"
-}
-
 # cmd_install [--force] — idempotent end-to-end install.
 cmd_install() {
   require_root
@@ -130,8 +101,13 @@ cmd_uninstall() {
   fi
 
   echo "Creating backup before uninstall..."
+  # Phase 11 — lib/backup.sh's backup_run is the one backup
+  # implementation (cmd_backup uses it too); spec-mandated that
+  # uninstall is never destructive without a recovery point, so a
+  # backup failure here aborts the uninstall entirely rather than
+  # proceeding without one.
   local archive
-  archive="$(_install_pre_uninstall_backup)"
+  archive="$(backup_run pre-uninstall)" || die "pre-uninstall backup failed — aborting uninstall (nothing was removed)" 3
   [[ -n "${archive}" ]] && echo "Backup saved to: ${archive}"
 
   echo "Removing OpenVPN, PKI, and firewall/NAT rules..."
