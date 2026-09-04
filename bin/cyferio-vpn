@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# cyferio-vpn — entry point. Resolves lib/ (installed or run-in-place),
+# sources modules in dependency order, installs the error trap, loads
+# config, and dispatches to core_dispatch.
+set -Eeuo pipefail
+
+# Resolve the real path to this script (following symlinks, e.g. when
+# installed as /usr/local/bin/cyferio-vpn -> the repo checkout).
+_resolve_self() {
+  local src="${BASH_SOURCE[0]}"
+  while [[ -L "${src}" ]]; do
+    local dir
+    dir="$(cd -P "$(dirname "${src}")" >/dev/null 2>&1 && pwd)"
+    src="$(readlink "${src}")"
+    [[ "${src}" != /* ]] && src="${dir}/${src}"
+  done
+  cd -P "$(dirname "${src}")" >/dev/null 2>&1 && pwd
+}
+
+BIN_DIR="$(_resolve_self)"
+CYFERIO_ROOT_DIR="$(cd -P "${BIN_DIR}/.." >/dev/null 2>&1 && pwd)"
+LIB_DIR="${CYFERIO_ROOT_DIR}/lib"
+export CYFERIO_ROOT_DIR
+
+if [[ ! -d "${LIB_DIR}" ]]; then
+  echo "cyferio-vpn: cannot find lib/ next to this script (looked in ${LIB_DIR})" >&2
+  exit 3
+fi
+
+# Dependency order matters: core.sh sets strict mode + paths first; logger.sh
+# and utils.sh have no dependencies on each other; config.sh and database.sh
+# use utils.sh (die, is_command_available).
+for module in core logger utils config database; do
+  # shellcheck source=/dev/null
+  source "${LIB_DIR}/${module}.sh"
+done
+
+trap 'core_on_error $? $LINENO' ERR
+
+config_load
+
+core_dispatch "$@"

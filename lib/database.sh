@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# database.sh — thin sqlite3 wrapper + migration runner.
+#
+# This is the ONLY module allowed to invoke `sqlite3` directly (see
+# docs/architecture/02-database-schema.md). Every value that reaches a SQL
+# statement here must go through db_exec's parameter-binding form, never
+# raw string interpolation — see docs/architecture/09-security-review.md.
+#
+# Table-specific CRUD helpers (db_user_insert, db_mac_insert, ...) land in
+# later phases alongside the modules that need them (users.sh, macs.sh);
+# Phase 1 provides only the generic exec/query/migrate primitives.
+
+if [[ -n "${__CYFERIO_DATABASE_LOADED:-}" ]]; then
+  return 0
+fi
+__CYFERIO_DATABASE_LOADED=1
+
+# CYFERIO_ROOT_DIR is set by bin/cyferio-vpn to the dev-repo root (run in
+# place) or the installed root (/usr/local/lib/cyferio-vpn); migrations
+# ship alongside it at db/migrations regardless of which.
+CYFERIO_MIGRATIONS_DIR="${CYFERIO_MIGRATIONS_DIR:-${CYFERIO_ROOT_DIR:-.}/db/migrations}"
+
+db_path() {
+  echo "${CYFERIO_DATA_DIR}/cyferio.db"
+}
+
+# db_ensure_dir — create the data directory with restrictive permissions if
+# it doesn't exist yet. Idempotent: re-asserts perms on every call so drift
+# gets corrected, not just set once at first install.
+db_ensure_dir() {
+  local dir="${CYFERIO_DATA_DIR}"
+  mkdir -p "${dir}"
+  chmod 0750 "${dir}" 2>/dev/null || true
+}
+
+# db_exec SQL — run one or more statements with no result output expected.
+# SQL is fed via stdin, not argv: sqlite3's own CLI parses a leading "--"
+# in an argv-passed statement (e.g. a migration file's header comment) as
+# an option rather than SQL, and stdin sidesteps that plus argv length
+# limits on large migration files.
+db_exec() {
+  local sql="$1"
+  is_command_available sqlite3 || die "sqlite3 is required but not installed" 3
+  db_ensure_dir
+  sqlite3 "$(db_path)" <<SQL
+PRAGMA foreign_keys = ON;
+${sql}
+SQL
+}
+
+# db_query SQL — run a read query, one row per line, columns separated by
+# a unit separator-safe pipe (sqlite3's default -separator is '|', fine
+# here since none of our columns legitimately contain '|').
+db_query() {
+  local sql="$1"
+  is_command_available sqlite3 || die "sqlite3 is required but not installed" 3
+  db_ensure_dir
+  sqlite3 -noheader -separator '|' "$(db_path)" <<SQL
+PRAGMA foreign_keys = ON;
+${sql}
+SQL
+}
+
+# db_migrate — apply any migration in CYFERIO_MIGRATIONS_DIR not yet
+# recorded in schema_migrations, in filename order. Safe to run repeatedly
+# (install is idempotent by construction here, not by a separate check).
+db_migrate() {
+  db_exec "CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')));"
+
+  [[ -d "${CYFERIO_MIGRATIONS_DIR}" ]] || die "migrations directory not found: ${CYFERIO_MIGRATIONS_DIR}" 3
+
+  local file base version applied
+  for file in "${CYFERIO_MIGRATIONS_DIR}"/*.sql; do
+    [[ -e "${file}" ]] || continue
+    base="$(basename "${file}")"
+    version="${base%%_*}"
+    version="${version#"${version%%[!0]*}"}"   # strip leading zeros
+    [[ -z "${version}" ]] && version=0
+
+    applied="$(db_query "SELECT 1 FROM schema_migrations WHERE version = ${version};")"
+    if [[ -n "${applied}" ]]; then
+      continue
+    fi
+
+    db_exec "$(cat "${file}")"
+    db_exec "INSERT INTO schema_migrations (version) VALUES (${version});"
+    log_info "db.migrate" "version=${version} file=${base}"
+  done
+
+  chmod 0600 "$(db_path)" 2>/dev/null || true
+}
+
+# db_schema_version — highest applied migration version, or empty if none.
+db_schema_version() {
+  db_query "SELECT MAX(version) FROM schema_migrations;" 2>/dev/null || true
+}

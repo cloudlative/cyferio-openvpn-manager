@@ -1,0 +1,24 @@
+# Cyferio OpenVPN Manager — configuration
+#
+# Copied to /etc/cyferio/cyferio.conf on install. Lines are KEY=VALUE;
+# comments start with #. Only the keys listed below are recognized —
+# config.sh rejects unknown keys rather than silently ignoring typos.
+
+# OpenVPN listening port
+vpn_port=1194
+
+# OpenVPN protocol: udp | tcp
+vpn_proto=udp
+
+# VPN subnet handed to clients
+vpn_subnet=10.8.0.0
+vpn_subnet_mask=255.255.255.0
+
+# MAC enforcement mode: strict | permissive
+# strict     — reject connections with no registered/matching MAC once the
+#              user has at least one MAC on file (default)
+# permissive — allow and log, useful during initial rollout
+mac_enforcement_mode=strict
+
+# Default output format for reporting commands: table | json | plain
+default_output_format=table
