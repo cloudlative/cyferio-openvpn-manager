@@ -98,6 +98,35 @@ db_audit_log() {
   db_exec "INSERT INTO audit_logs (action, actor, details) VALUES ('$(sql_quote "${action}")', '$(sql_quote "${actor}")', '$(sql_quote "${details}")');"
 }
 
+# --- users table CRUD (Phase 4) -----------------------------------------
+# Row format everywhere below: id|username|status|profile_path|created_at|
+# updated_at (profile_path coalesced to '' rather than NULL, so a plain
+# `IFS='|' read` always gets 6 fields).
+
+db_user_insert() {
+  local username="$1" profile_path="$2"
+  db_exec "INSERT INTO users (username, profile_path) VALUES ('$(sql_quote "${username}")', '$(sql_quote "${profile_path}")');"
+}
+
+db_user_get() {
+  local username="$1"
+  db_query "SELECT id, username, status, COALESCE(profile_path,''), created_at, updated_at FROM users WHERE username = '$(sql_quote "${username}")';"
+}
+
+db_user_list() {
+  db_query "SELECT id, username, status, COALESCE(profile_path,''), created_at, updated_at FROM users ORDER BY username;"
+}
+
+db_user_set_status() {
+  local username="$1" status="$2"
+  db_exec "UPDATE users SET status = '$(sql_quote "${status}")', updated_at = datetime('now') WHERE username = '$(sql_quote "${username}")';"
+}
+
+db_user_delete() {
+  local username="$1"
+  db_exec "DELETE FROM users WHERE username = '$(sql_quote "${username}")';"
+}
+
 # db_schema_version — highest applied migration version, or empty if none.
 db_schema_version() {
   db_query "SELECT MAX(version) FROM schema_migrations;" 2>/dev/null || true

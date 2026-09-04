@@ -16,6 +16,7 @@ declare -A CYFERIO_CFG=(
   [vpn_proto]=udp
   [vpn_subnet]=10.8.0.0
   [vpn_subnet_mask]=255.255.255.0
+  [vpn_public_endpoint]=""
   [mac_enforcement_mode]=strict
   [default_output_format]=table
 )

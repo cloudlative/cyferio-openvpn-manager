@@ -1,0 +1,17 @@
+# Rendered by lib/backends/openvpn.sh (vpn_backend_render_profile).
+# Placeholders (__NAME__) are substituted at render time; the <ca>/<cert>/
+# <key>/<tls-crypt> blocks are appended separately (not sed-substituted —
+# PEM/key content isn't safe to run through sed).
+client
+dev tun
+proto __VPN_PROTO__
+remote __VPN_ENDPOINT__ __VPN_PORT__
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+remote-cert-tls server
+cipher AES-256-GCM
+auth SHA256
+verb 3
+push-peer-info

@@ -15,11 +15,12 @@ _cert_require_pki() {
 
 # 'server' is issued and managed by install/uninstall — block it from the
 # generic cert command so it can't be revoked out from under a running
-# VPN by accident.
+# VPN by accident. Shared with users.sh via utils.sh's
+# is_reserved_identity_name (a username IS a cert CN — same namespace).
 _cert_reserved_name_guard() {
   local name="$1"
-  if [[ "${name}" == "server" ]]; then
-    die "'server' is managed by install/uninstall, not 'cert' — use those commands instead" 1
+  if is_reserved_identity_name "${name}"; then
+    die "'${name}' is managed by install/uninstall, not 'cert' — use those commands instead" 1
   fi
 }
 

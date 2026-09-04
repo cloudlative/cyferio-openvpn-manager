@@ -14,6 +14,13 @@ vpn_proto=udp
 vpn_subnet=10.8.0.0
 vpn_subnet_mask=255.255.255.0
 
+# Public hostname or IP clients should connect to, embedded into every
+# exported .ovpn profile. Leave unset to auto-detect the host's public IP
+# at profile-export time (fine for a single static IP; set this
+# explicitly if you have a DNS name, a floating/failover IP, or the
+# instance's IP can change).
+vpn_public_endpoint=
+
 # MAC enforcement mode: strict | permissive
 # strict     — reject connections with no registered/matching MAC once the
 #              user has at least one MAC on file (default)

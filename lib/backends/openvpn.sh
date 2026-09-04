@@ -325,6 +325,81 @@ vpn_backend_list_clients() {
   done
 }
 
+# _ovpn_public_endpoint — the hostname/IP embedded in exported profiles.
+# Prefers the admin-configured vpn_public_endpoint (DNS name, floating
+# IP, ...); falls back to a live public-IP lookup, same sources as
+# network.sh's net_check_public_ip.
+_ovpn_public_endpoint() {
+  local endpoint
+  endpoint="$(config_get vpn_public_endpoint)"
+  if [[ -n "${endpoint}" ]]; then
+    echo "${endpoint}"
+    return 0
+  fi
+  curl -fsS -m5 https://ifconfig.me 2>/dev/null || curl -fsS -m5 https://api.ipify.org 2>/dev/null || true
+}
+
+# vpn_backend_render_profile NAME — fill templates/client.ovpn.tmpl and
+# write the single-file profile to the invoking admin's ~/vpn-profiles/
+# (per spec — NOT /root, even though this command runs via sudo; see
+# utils.sh:invoking_user_home). Echoes the resulting path. The <ca>/
+# <cert>/<key>/<tls-crypt> blocks are appended by reading the PEM/key
+# files directly (cat), never sed-substituted into the template —
+# certificate content isn't safe to run through a regex engine.
+vpn_backend_render_profile() {
+  local name="$1"
+  local pki_dir cert_file key_file
+  pki_dir="$(ovpn_pki_dir)"
+  cert_file="${pki_dir}/issued/${name}.crt"
+  key_file="${pki_dir}/private/${name}.key"
+  [[ -f "${cert_file}" ]] || die "no certificate found for '${name}' (run 'cyferio-vpn cert create ${name}' first)" 1
+  [[ -f "${key_file}" ]] || die "private key missing for '${name}'" 3
+
+  local template="${CYFERIO_ROOT_DIR}/templates/client.ovpn.tmpl"
+  [[ -f "${template}" ]] || die "client profile template not found: ${template}" 3
+
+  local endpoint port proto
+  endpoint="$(_ovpn_public_endpoint)"
+  [[ -n "${endpoint}" ]] || die "could not determine a public endpoint for the VPN server (set vpn_public_endpoint in ${CYFERIO_CONF_DIR}/cyferio.conf)" 1
+  port="$(config_get vpn_port)"
+  proto="$(config_get vpn_proto)"
+
+  local profile_dir
+  profile_dir="$(invoking_user_home)/vpn-profiles"
+  mkdir -p "${profile_dir}"
+  chmod 0700 "${profile_dir}"
+
+  local out="${profile_dir}/${name}.ovpn"
+  {
+    sed \
+      -e "s|__VPN_PROTO__|${proto}|g" \
+      -e "s|__VPN_ENDPOINT__|${endpoint}|g" \
+      -e "s|__VPN_PORT__|${port}|g" \
+      "${template}"
+    echo "<ca>"
+    cat "${pki_dir}/ca.crt"
+    echo "</ca>"
+    echo "<cert>"
+    sed -n '/BEGIN CERTIFICATE/,/END CERTIFICATE/p' "${cert_file}"
+    echo "</cert>"
+    echo "<key>"
+    cat "${key_file}"
+    echo "</key>"
+    echo "<tls-crypt>"
+    cat "${pki_dir}/ta.key"
+    echo "</tls-crypt>"
+  } >"${out}.new"
+
+  mv "${out}.new" "${out}"
+  chmod 0600 "${out}"
+  if [[ -n "${SUDO_USER:-}" ]]; then
+    chown "${SUDO_USER}:${SUDO_USER}" "${profile_dir}" "${out}" 2>/dev/null || true
+  fi
+
+  log_info "profile.render" "name=${name} result=success path=${out}"
+  echo "${out}"
+}
+
 # ovpn_uninstall — stop/disable the service and remove OpenVPN-managed
 # state. Does NOT touch the SQLite database or backups — install.sh's
 # cmd_uninstall orchestrates those separately, and always backs up first.

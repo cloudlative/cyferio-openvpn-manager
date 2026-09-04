@@ -102,6 +102,28 @@ netmask_to_prefix() {
   echo "${bits}"
 }
 
+# is_reserved_identity_name NAME — true for identity names (usernames,
+# cert CNs — same namespace) reserved for internal use. Currently only
+# 'server' (the OpenVPN server's own certificate, managed by
+# install/uninstall). Shared by certs.sh and users.sh.
+is_reserved_identity_name() {
+  local name="$1"
+  [[ "${name}" == "server" ]]
+}
+
+# invoking_user_home — the home directory of the human who ran this
+# command, even though the command itself runs as root (via sudo). Falls
+# back to $HOME (e.g. logged in directly as root, no sudo) if $SUDO_USER
+# isn't set. Used for ~/vpn-profiles/ — spec-mandated to land in the
+# invoking admin's home, not root's.
+invoking_user_home() {
+  if [[ -n "${SUDO_USER:-}" ]]; then
+    getent passwd "${SUDO_USER}" | cut -d: -f6
+  else
+    echo "${HOME}"
+  fi
+}
+
 # current_actor — the invoking human, for audit_logs.actor. Prefers
 # $SUDO_USER (set when running via `sudo`) over the effective/root user, so
 # audit entries say who ran the command, not just "root".

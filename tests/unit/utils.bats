@@ -98,6 +98,21 @@ setup() {
   [ "$result" = "asif" ]
 }
 
+@test "is_reserved_identity_name blocks 'server'" {
+  run is_reserved_identity_name "server"
+  [ "$status" -eq 0 ]
+}
+
+@test "is_reserved_identity_name allows a normal username" {
+  run is_reserved_identity_name "alice"
+  [ "$status" -ne 0 ]
+}
+
+@test "invoking_user_home falls back to \$HOME when SUDO_USER is unset" {
+  result="$(env -u SUDO_USER HOME=/tmp/fake-home bash -c 'source '"${BATS_TEST_DIRNAME}"'/../../lib/core.sh; source '"${BATS_TEST_DIRNAME}"'/../../lib/logger.sh; source '"${BATS_TEST_DIRNAME}"'/../../lib/utils.sh; invoking_user_home')"
+  [ "$result" = "/tmp/fake-home" ]
+}
+
 @test "current_actor falls back to the current user when SUDO_USER is unset" {
   result="$(env -u SUDO_USER bash -c 'source '"${BATS_TEST_DIRNAME}"'/../../lib/core.sh; source '"${BATS_TEST_DIRNAME}"'/../../lib/logger.sh; source '"${BATS_TEST_DIRNAME}"'/../../lib/utils.sh; current_actor')"
   [ -n "$result" ]
