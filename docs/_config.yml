@@ -1,9 +1,11 @@
 title: Cyferio OpenVPN Manager
-description: >-
-  A production-grade, bash-only OpenVPN deployment and management toolkit —
-  no web UI, no browser dependency. PKI lifecycle, MAC-address device
-  binding, backup/restore, auditing, and a single-file install, all
-  scriptable via JSON output.
+# jekyll-seo-tag appends this to the homepage's <title> tag
+# ("{{ site.title }} | {{ site.description }}"), so it needs to stay
+# short for a clean, non-truncated search-result title — the longer
+# pitch lives in docs/index.md's own page description instead, which
+# jekyll-seo-tag uses for the actual <meta name="description"> on that
+# page.
+description: A bash-only OpenVPN deployment and management toolkit — no web UI, no browser dependency.
 url: "https://cloudlative.github.io"
 baseurl: "/cyferio-openvpn-manager"
 repository: cloudlative/cyferio-openvpn-manager
