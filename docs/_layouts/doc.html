@@ -1,16 +1,16 @@
 ---
 layout: default
 ---
+<!--
+  No separate post-header/h1 here: every architecture doc's body
+  already opens with its own "# NN — Title" heading (kramdown renders
+  that as the page's <h1>), so a second one from page.title would just
+  duplicate it.
+-->
 <article class="post">
-
-  <header class="post-header">
-    <h1 class="post-title">{{ page.title | escape }}</h1>
-  </header>
-
   <div class="post-content">
     {{ content }}
   </div>
-
 </article>
 
 {%- assign nav = site.data.docs_nav -%}

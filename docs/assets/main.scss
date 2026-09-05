@@ -227,6 +227,19 @@ code { padding: 2px 6px; }
 pre { padding: 16px 18px; overflow-x: auto; }
 pre > code { padding: 0; background: transparent; }
 
+// minima's syntax-highlighting partial sets `.highlight` and
+// `.highlighter-rouge .highlight` backgrounds directly (#fff / #eef) —
+// both more specific than the bare `pre` rule above, so they'd win the
+// cascade and silently keep fenced code blocks on a light background
+// no matter what `pre { background: ... }` says. Match those exact
+// selectors so this rule (declared after @import "minima") actually
+// takes precedence.
+.highlight,
+.highlighter-rouge .highlight {
+  background: $code-bg;
+  color: $code-fg;
+}
+
 .post-content, .page-content { line-height: $base-line-height; }
 
 // ============================================================
