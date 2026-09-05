@@ -1,3 +1,8 @@
+---
+title: "05 — Cloud Provider Detection Design"
+permalink: /architecture/05-cloud-detection/
+---
+
 # 05 — Cloud Provider Detection Design
 
 `lib/cloud.sh`, invoked by `install`'s pre-flight and standalone via `cyferio-vpn network detect [--json]`.

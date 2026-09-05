@@ -1,3 +1,8 @@
+---
+title: "10 — Testing Strategy"
+permalink: /architecture/10-testing-strategy/
+---
+
 # 10 — Testing Strategy
 
 ## Static analysis (every commit, CI gate)

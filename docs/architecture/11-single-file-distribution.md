@@ -1,3 +1,8 @@
+---
+title: "11 — Single-File Distribution (Phase 13)"
+permalink: /architecture/11-single-file-distribution/
+---
+
 # 11 — Single-File Distribution (Phase 13)
 
 ## Why

@@ -1,3 +1,8 @@
+---
+title: "00 — Architecture Overview"
+permalink: /architecture/00-overview/
+---
+
 # 00 — Architecture Overview
 
 ## Design principles

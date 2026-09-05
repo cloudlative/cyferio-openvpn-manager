@@ -1,3 +1,8 @@
+---
+title: "09 — Security Review & Threat Model"
+permalink: /architecture/09-security-review/
+---
+
 # 09 — Security Review & Threat Model
 
 ## Threat model summary

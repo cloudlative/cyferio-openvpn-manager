@@ -1,3 +1,8 @@
+---
+title: "08 — Backup & Restore Architecture"
+permalink: /architecture/08-backup-restore/
+---
+
 # 08 — Backup & Restore Architecture
 
 ## `cyferio-vpn backup`

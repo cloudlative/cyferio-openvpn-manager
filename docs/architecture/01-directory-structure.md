@@ -1,3 +1,8 @@
+---
+title: "01 — Directory Structure"
+permalink: /architecture/01-directory-structure/
+---
+
 # 01 — Directory Structure
 
 ```

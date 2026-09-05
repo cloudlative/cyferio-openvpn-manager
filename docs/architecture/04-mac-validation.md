@@ -1,3 +1,8 @@
+---
+title: "04 — MAC Address Validation Design"
+permalink: /architecture/04-mac-validation/
+---
+
 # 04 — MAC Address Validation Design
 
 ## Data model

@@ -1,3 +1,8 @@
+---
+title: "06 — Networking Validation Design"
+permalink: /architecture/06-networking-validation/
+---
+
 # 06 — Networking Validation Design
 
 `lib/network.sh`, run automatically as `install`'s pre-flight and standalone via `cyferio-vpn diagnose`.

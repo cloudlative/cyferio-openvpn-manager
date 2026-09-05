@@ -1,0 +1,23 @@
+title: Cyferio OpenVPN Manager
+description: >-
+  A production-grade, bash-only OpenVPN deployment and management toolkit —
+  no web UI, no browser dependency. PKI lifecycle, MAC-address device
+  binding, backup/restore, auditing, and a single-file install, all
+  scriptable via JSON output.
+url: "https://cloudlative.github.io"
+baseurl: "/cyferio-openvpn-manager"
+repository: cloudlative/cyferio-openvpn-manager
+
+theme: minima
+markdown: kramdown
+permalink: pretty
+
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+header_pages:
+  - architecture/00-overview.md
+  - architecture/03-openvpn-integration.md
+  - architecture/09-security-review.md
+  - architecture/11-single-file-distribution.md

@@ -1,3 +1,8 @@
+---
+title: "03 — OpenVPN Integration & PKI Lifecycle"
+permalink: /architecture/03-openvpn-integration/
+---
+
 # 03 — OpenVPN Integration & PKI Lifecycle
 
 `lib/backends/openvpn.sh` is the only module aware of OpenVPN/EasyRSA specifics.

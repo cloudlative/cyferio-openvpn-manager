@@ -1,3 +1,8 @@
+---
+title: "02 — Database Schema (SQLite)"
+permalink: /architecture/02-database-schema/
+---
+
 # 02 — Database Schema (SQLite)
 
 Location: `/var/lib/cyferio/cyferio.db`, mode `0600`, owned by `root`. All access goes through `lib/database.sh` — no other module calls `sqlite3` directly.

@@ -1,3 +1,8 @@
+---
+title: "07 — Logging Architecture"
+permalink: /architecture/07-logging/
+---
+
 # 07 — Logging Architecture
 
 ## Location & format
