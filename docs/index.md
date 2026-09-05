@@ -37,8 +37,7 @@ chmod +x cyferio-vpn
 sudo mv cyferio-vpn /usr/local/bin/cyferio-vpn
 
 sudo cyferio-vpn install
-sudo cyferio-vpn user add alice
-sudo cyferio-vpn profile export alice
+sudo cyferio-vpn user add alice   # also exports alice's .ovpn profile
 ```
 
 One self-contained file — no sibling directories required. See

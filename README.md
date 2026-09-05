@@ -38,8 +38,7 @@ chmod +x cyferio-vpn
 sudo mv cyferio-vpn /usr/local/bin/cyferio-vpn
 
 sudo cyferio-vpn install
-sudo cyferio-vpn user add alice
-sudo cyferio-vpn profile export alice
+sudo cyferio-vpn user add alice   # also exports alice's .ovpn profile
 ```
 
 `dist/cyferio-vpn` (what that download is) is a generated build
@@ -55,8 +54,7 @@ yourself instead of downloading a release: `./scripts/build-dist.sh`.
 git clone https://github.com/cloudlative/cyferio-openvpn-manager.git
 cd cyferio-openvpn-manager
 sudo ./bin/cyferio-vpn install
-sudo ./bin/cyferio-vpn user add alice
-sudo ./bin/cyferio-vpn profile export alice
+sudo ./bin/cyferio-vpn user add alice   # also exports alice's .ovpn profile
 ```
 
 Either way, launch the menu-driven interface instead of the CLI with:
@@ -93,6 +91,14 @@ cyferio-vpn --interactive          # menu-driven interface
 
 Every list/get/report command supports `--json` for scripting; `mac
 report` and `status` additionally support `--plain`.
+
+`user add` already exports the new user's `.ovpn` profile — `profile
+export` is only needed afterward, to re-render an existing user's
+profile without touching their certificate (a lost file, or the
+server's public address changed). `profile regenerate` is different
+again: it revokes the current certificate and issues a new one, so the
+old profile stops working immediately — use it when a device/profile
+may have been compromised or lost.
 
 `upgrade` (single-file build only — see below) checks GitHub Releases
 for a newer version and, unless `--check`, downloads and installs it in
