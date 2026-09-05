@@ -60,8 +60,6 @@ Commands:
 
 Run with no arguments to see this help; use --interactive for the menu-driven interface.
 
-Docs: docs/architecture/  Website: https://cyferio.com
-
 EOF
 }
 
@@ -69,20 +67,33 @@ core_version() {
   echo "${CYFERIO_NAME} v${CYFERIO_VERSION}"
 }
 
+# _core_supports_color — gates the banner's cosmetic ANSI color only;
+# never applied to command output (JSON/table/plain stay plain always).
+# Honors NO_COLOR (https://no-color.org) and TERM=dumb, and checks a real
+# terminal on stderr specifically — where the banner actually prints —
+# not stdout, which may be redirected/piped independently of the tty.
+_core_supports_color() {
+  [[ -z "${NO_COLOR:-}" && "${TERM:-}" != "dumb" && -t 2 ]]
+}
+
 # core_banner — printed on every execution per spec. Always to stderr, not
 # stdout: this command's stdout may be piped or parsed as --json, and the
 # banner must never end up mixed into machine-readable output.
 core_banner() {
-  cat >&2 <<'EOF'
-   ______      ____           _
-  / ____/_  __/ __/__  ______(_)___
- / /   / / / / /_/ _ \/ ___/ / __ \
-/ /___/ /_/ / __/  __/ /  / / /_/ /
-\____/\__, /_/  \___/_/  /_/\____/
-     /____/   OpenVPN Manager
+  local c_mark='' c_dim='' c_reset=''
+  if _core_supports_color; then
+    c_mark=$'\033[1;36m'   # bold cyan — the logo mark + wordmark
+    c_dim=$'\033[2m'       # dim — tagline/version/author, secondary to the mark
+    c_reset=$'\033[0m'
+  fi
+
+  cat >&2 <<EOF
+${c_mark} ╭───╮    _____   _____ ___ ___ ___ ___
+ │   │   / __\\ \\ / / __| __| _ \\_ _/ _ \\
+ │ C │  | (__ \\ V /| _|| _||   /| | (_) |
+ ╰───╯   \\___| |_| |_| |___|_|_\\___\\___/${c_reset}
 EOF
-  echo "v${CYFERIO_VERSION} · https://cyferio.com" >&2
-  echo "Asif · LinkedIn: https://www.linkedin.com/in/cloudlative · +92-333-8885567" >&2
+  echo "${c_dim}Asif · LinkedIn: https://www.linkedin.com/in/cloudlative · +92-333-8885567${c_reset}" >&2
   echo >&2
 }
 
