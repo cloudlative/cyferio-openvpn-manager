@@ -14,7 +14,7 @@ if [[ -n "${__CYFERIO_UPGRADE_LOADED:-}" ]]; then
 fi
 __CYFERIO_UPGRADE_LOADED=1
 
-CYFERIO_GITHUB_REPO="${CYFERIO_GITHUB_REPO:-asifrafiq/cyferio-openvpn-manager}"
+CYFERIO_GITHUB_REPO="${CYFERIO_GITHUB_REPO:-cloudlative/cyferio-openvpn-manager}"
 CYFERIO_RELEASE_ASSET_NAME="${CYFERIO_RELEASE_ASSET_NAME:-cyferio-vpn}"
 
 _UPGRADE_LATEST_VERSION=""
