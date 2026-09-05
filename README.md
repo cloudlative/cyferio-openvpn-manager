@@ -63,6 +63,7 @@ cyferio-vpn restore <archive> [--force]
 
 cyferio-vpn network detect [--json]
 
+cyferio-vpn upgrade [--check] [--force]
 cyferio-vpn version
 cyferio-vpn help
 cyferio-vpn --interactive          # menu-driven interface
@@ -70,6 +71,13 @@ cyferio-vpn --interactive          # menu-driven interface
 
 Every list/get/report command supports `--json` for scripting; `mac
 report` and `status` additionally support `--plain`.
+
+`upgrade` (single-file build only — see below) checks GitHub Releases
+for a newer version and, unless `--check`, downloads and installs it in
+place, replacing the running binary; `version` also notes when an
+update is available. `version`'s check is silent on any network
+failure (an offline box never makes `version` itself look broken);
+`upgrade`, being an explicit action, reports a clear error instead.
 
 ## Requirements
 

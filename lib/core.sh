@@ -55,7 +55,8 @@ Commands:
   diagnose [--json]                         Run connectivity/troubleshooting checks
   backup                                    Create a timestamped backup archive
   restore <archive> [--force]               Restore from a backup archive
-  version                                   Print version
+  upgrade [--check] [--force]               Check for/install a newer version
+  version                                   Print version (notes if an update is available)
   help                                      Show this help
 
 Run with no arguments to see this help; use --interactive for the menu-driven interface.
@@ -65,6 +66,13 @@ EOF
 
 core_version() {
   echo "${CYFERIO_NAME} v${CYFERIO_VERSION}"
+  # Best-effort, silent-on-failure update check (upgrade.sh) — an
+  # offline box or a GitHub API hiccup must never make `version` itself
+  # look broken. declare -F guards against upgrade.sh somehow not being
+  # loaded, same defensive idiom core_on_error uses for log_error.
+  if declare -F _upgrade_print_if_available >/dev/null 2>&1; then
+    _upgrade_print_if_available
+  fi
 }
 
 # _core_supports_color — gates the banner's cosmetic ANSI color only;
@@ -176,6 +184,10 @@ core_dispatch() {
     restore)
       shift
       cmd_restore "$@"
+      ;;
+    upgrade)
+      shift
+      cmd_upgrade "$@"
       ;;
     *)
       echo "cyferio-vpn: unknown command '${cmd}'" >&2

@@ -16,6 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/usr/local/bin/cyferio-vpn` with no sibling `lib/`, `config/`,
   `templates/`, or `db/` directory required. See
   [docs/architecture/11-single-file-distribution.md](docs/architecture/11-single-file-distribution.md).
+- **Self-upgrade** — `cyferio-vpn upgrade [--check] [--force] [--json]`
+  checks GitHub Releases for a newer version and, unless `--check`,
+  downloads and atomically replaces the running single-file binary in
+  place; `cyferio-vpn version` now also notes when an update is
+  available. Single-file build only (`dist/cyferio-vpn` installed via
+  `/usr/local/bin`) — a multi-file dev checkout is told to `git pull`
+  instead. Also reachable from `--interactive`'s main menu.
+- **Banner refresh** — the boot banner is now the CYFERIO wordmark only
+  (color when the terminal supports it), a trimmed author line
+  (`Asif · cyferio.com · linkedin.com/in/cloudlative`), and `--help`'s
+  duplicate/misaligned command entries were fixed.
 
 ## [1.0.0] - 2026-09-05
 

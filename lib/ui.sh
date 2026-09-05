@@ -312,7 +312,8 @@ ui_main_menu() {
       8 "Diagnose" \
       9 "Backup & restore" \
       10 "Network detection" \
-      11 "Uninstall")"
+      11 "Check for updates / Upgrade" \
+      12 "Uninstall")"
     case "${choice}" in
       1) _ui_run cmd_install ;;
       2) ui_user_menu ;;
@@ -324,7 +325,8 @@ ui_main_menu() {
       8) _ui_run cmd_diagnose ;;
       9) ui_backup_menu ;;
       10) _ui_run cmd_network detect ;;
-      11) _ui_run cmd_uninstall ;;
+      11) _ui_run cmd_upgrade --check ;;
+      12) _ui_run cmd_uninstall ;;
       *) echo "Goodbye."; return 0 ;;
     esac
   done
