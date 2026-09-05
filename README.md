@@ -1,10 +1,21 @@
-# Cyferio OpenVPN Manager
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="branding/logo-horizontal-dark-bg.svg">
+    <img src="branding/logo-horizontal-light-bg.svg" alt="Cyferio OpenVPN Manager" height="56">
+  </picture>
+</p>
 
-A production-grade, bash-only OpenVPN deployment and management toolkit — no web UI, no browser dependency. Built for home labs, SMBs, enterprises, MSPs, resellers, and dedicated customer deployments.
+<p align="center">A production-grade, bash-only OpenVPN deployment and management toolkit — no web UI, no browser dependency.</p>
+
+<p align="center">
+  <a href="https://cyferio.com">cyferio.com</a> ·
+  <a href="https://github.com/cloudlative/cyferio-openvpn-manager/releases/latest">Latest release</a> ·
+  <a href="LICENSE">MIT License</a>
+</p>
+
+Built for home labs, SMBs, enterprises, MSPs, resellers, and dedicated customer deployments.
 
 > **Status: v1.1.0.** Every command in the spec's command surface is implemented and verified end-to-end on real disposable cloud VMs — see [CHANGELOG.md](CHANGELOG.md) for what's shipped, including this release's known limitations.
-
-**Repository:** [github.com/cloudlative/cyferio-openvpn-manager](https://github.com/cloudlative/cyferio-openvpn-manager)
 
 ## What this is
 
@@ -119,6 +130,14 @@ MAC-address enforcement is a device-management/policy control, **not** a
 cryptographic security boundary — OpenVPN's client-supplied peer-info is
 not independently verified. See [SECURITY.md](SECURITY.md) for the full
 posture, including CA key handling and the dropped-privilege hook design.
+
+## Need a managed, web-based alternative?
+
+This CLI is free and MIT-licensed — no account, no web UI, run it
+entirely on your own infrastructure. If you'd rather not manage a VPN
+server yourself, Cyferio also offers a hosted/managed OpenVPN product
+with a web dashboard. See [cyferio.com](https://cyferio.com) for
+details.
 
 ## License
 
