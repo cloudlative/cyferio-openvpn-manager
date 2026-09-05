@@ -100,7 +100,7 @@ ${c_mark}  _____   _____ ___ ___ ___ ___
 | (__ \\ V /| _|| _||   /| | (_) |
  \\___| |_| |_| |___|_|_\\___\\___/${c_reset}
 EOF
-  echo "${c_dim}Asif · LinkedIn: https://www.linkedin.com/in/cloudlative · +92-333-8885567${c_reset}" >&2
+  echo "${c_dim}Asif · cyferio.com · linkedin.com/in/cloudlative${c_reset}" >&2
   echo >&2
 }
 
