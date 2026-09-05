@@ -41,22 +41,22 @@ Usage:
   cyferio-vpn --interactive          Launch the menu-driven interface
 
 Commands:
-  install [--force]              Install and configure OpenVPN
-  uninstall [--force]            Remove OpenVPN and all Cyferio state
-  cert <create|revoke|list|status> ...   Manage certificates directly
+  install [--force]                         Install and configure OpenVPN
+  uninstall [--force]                       Remove OpenVPN and all Cyferio state
+  network detect [--json]                   Detect cloud provider, validate networking
+  cert <create|revoke|list|status> ...      Manage certificates directly
   user <add|remove|enable|disable|get|list> USERNAME [--json]
+                                            Manage VPN users
   profile <export|regenerate> USERNAME [--force]
-  mac <add|remove|update|list> USERNAME [MAC ...] [--json]
-  profile <export|regenerate> USERNAME
-  mac <add|remove|update|list|report> ...
-  status [--json]                Show deployment health
-  audit [--json]                 Run security/config audit
-  diagnose [--json]              Run connectivity/troubleshooting checks
-  backup                         Create a timestamped backup archive
-  restore <archive> [--force]    Restore from a backup archive
-  network detect [--json]        Detect cloud provider and validate networking
-  version                        Print version
-  help                           Show this help
+                                            Export/regenerate a client .ovpn profile
+  mac <add|remove|update|list|report> ...   Manage MAC-address device bindings
+  status [--json]                           Show deployment health
+  audit [--json]                            Run security/config audit
+  diagnose [--json]                         Run connectivity/troubleshooting checks
+  backup                                    Create a timestamped backup archive
+  restore <archive> [--force]               Restore from a backup archive
+  version                                   Print version
+  help                                      Show this help
 
 Run with no arguments to see this help; use --interactive for the menu-driven interface.
 

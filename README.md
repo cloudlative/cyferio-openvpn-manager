@@ -16,7 +16,7 @@ Designed to grow to WireGuard, IPSec, and OpenConnect without a redesign — see
 `dist/cyferio-vpn` and drop it anywhere on your `PATH`:
 
 ```bash
-sudo ./scripts/build-dist.sh          # produces dist/cyferio-vpn
+./scripts/build-dist.sh               # produces dist/cyferio-vpn (no root needed)
 sudo cp dist/cyferio-vpn /usr/local/bin/cyferio-vpn
 sudo cyferio-vpn install
 sudo cyferio-vpn user add alice
