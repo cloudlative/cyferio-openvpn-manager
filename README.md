@@ -4,6 +4,8 @@ A production-grade, bash-only OpenVPN deployment and management toolkit — no w
 
 > **Status: v1.1.0.** Every command in the spec's command surface is implemented and verified end-to-end on real disposable cloud VMs — see [CHANGELOG.md](CHANGELOG.md) for what's shipped, including this release's known limitations.
 
+**Repository:** [github.com/cloudlative/cyferio-openvpn-manager](https://github.com/cloudlative/cyferio-openvpn-manager)
+
 ## What this is
 
 A single CLI (`cyferio-vpn`) that installs, configures, and manages an OpenVPN server end to end: cloud-aware pre-flight validation, PKI/certificate lifecycle, per-user profile generation, MAC-address device binding, backup/restore, auditing, and diagnostics — fully scriptable (JSON output on every reporting command) and fully interactive (`--interactive` menu mode for non-technical operators).
@@ -12,26 +14,32 @@ Designed to grow to WireGuard, IPSec, and OpenConnect without a redesign — see
 
 ## Quick start
 
-**Single file, no checkout needed** — build (or grab a released)
-`dist/cyferio-vpn` and drop it anywhere on your `PATH`:
+**Single file, no checkout needed** — grab the latest release and drop
+it anywhere on your `PATH`:
 
 ```bash
-./scripts/build-dist.sh               # produces dist/cyferio-vpn (no root needed)
-sudo cp dist/cyferio-vpn /usr/local/bin/cyferio-vpn
+curl -fsSL https://github.com/cloudlative/cyferio-openvpn-manager/releases/latest/download/cyferio-vpn \
+  -o cyferio-vpn
+chmod +x cyferio-vpn
+sudo mv cyferio-vpn /usr/local/bin/cyferio-vpn
+
 sudo cyferio-vpn install
 sudo cyferio-vpn user add alice
 sudo cyferio-vpn profile export alice
 ```
 
-`dist/cyferio-vpn` is a generated build artifact — see
+`dist/cyferio-vpn` (what that download is) is a generated build
+artifact — see
 [docs/architecture/11-single-file-distribution.md](docs/architecture/11-single-file-distribution.md)
 for how it bundles every module and asset into one file with no sibling
-`lib/`, `config/`, or `templates/` directory required.
+`lib/`, `config/`, or `templates/` directory required. To build it
+yourself instead of downloading a release: `./scripts/build-dist.sh`.
 
-**Or run in place from this checkout**, e.g. for development:
+**Or run in place from a checkout**, e.g. for development:
 
 ```bash
-cd cyferio-openvpn-manager   # this checkout
+git clone https://github.com/cloudlative/cyferio-openvpn-manager.git
+cd cyferio-openvpn-manager
 sudo ./bin/cyferio-vpn install
 sudo ./bin/cyferio-vpn user add alice
 sudo ./bin/cyferio-vpn profile export alice
@@ -119,3 +127,5 @@ MIT — see [LICENSE](LICENSE).
 ## Author
 
 Asif — [cyferio.com](https://cyferio.com) · [LinkedIn](https://www.linkedin.com/in/cloudlative)
+
+Maintained under the [cloudlative](https://github.com/cloudlative) GitHub organization.
