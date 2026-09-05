@@ -61,6 +61,7 @@ Commands:
 Run with no arguments to see this help; use --interactive for the menu-driven interface.
 
 Docs: docs/architecture/  Website: https://cyferio.com
+
 EOF
 }
 
