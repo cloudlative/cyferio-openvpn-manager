@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# Cyferio OpenVPN Manager
+<h1 align="center">Cyferio OpenVPN Manager</h1>
 
 <p align="center">A production-grade, bash-only OpenVPN deployment and management toolkit — no web UI, no browser dependency.</p>
 
