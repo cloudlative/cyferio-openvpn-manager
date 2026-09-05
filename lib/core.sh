@@ -80,17 +80,21 @@ _core_supports_color() {
 # stdout: this command's stdout may be piped or parsed as --json, and the
 # banner must never end up mixed into machine-readable output.
 core_banner() {
-  local c_mark='' c_dim='' c_reset=''
+  local c_mark='' c_accent='' c_dim='' c_reset=''
   if _core_supports_color; then
-    c_mark=$'\033[1;36m'   # bold cyan — the logo mark + wordmark
-    c_dim=$'\033[2m'       # dim — tagline/version/author, secondary to the mark
+    c_mark=$'\033[1;36m'    # bold cyan — the logo ring + wordmark (branding/assets/*.svg's #23D6C4)
+    c_accent=$'\033[1;33m'  # bold yellow — the logo's center dot (branding's #F2A93B accent arc)
+    c_dim=$'\033[2m'        # dim — the author line, secondary to the mark
     c_reset=$'\033[0m'
   fi
 
+  # The logo mark ("◉", ring + center dot) approximates
+  # branding/assets/github-avatar.svg's two-tone orbiting-arcs-plus-dot
+  # mark at terminal-glyph scale — same idea, one character.
   cat >&2 <<EOF
 ${c_mark} ╭───╮    _____   _____ ___ ___ ___ ___
  │   │   / __\\ \\ / / __| __| _ \\_ _/ _ \\
- │ C │  | (__ \\ V /| _|| _||   /| | (_) |
+ │ ${c_accent}◉${c_mark} │  | (__ \\ V /| _|| _||   /| | (_) |
  ╰───╯   \\___| |_| |_| |___|_|_\\___\\___/${c_reset}
 EOF
   echo "${c_dim}Asif · LinkedIn: https://www.linkedin.com/in/cloudlative · +92-333-8885567${c_reset}" >&2
