@@ -135,6 +135,23 @@ setup() {
   [[ "$output" == "ACCEPT no_mac_policy" ]]
 }
 
+@test "mac_check_connection rejects a user with no MACs registered when mac_required=true" {
+  CYFERIO_CFG[mac_required]=true
+  db_mac_list() { :; }
+  run mac_check_connection "john" ""
+  [ "$status" -ne 0 ]
+  [[ "$output" == "REJECT no_mac_registered" ]]
+}
+
+@test "mac_check_connection: mac_required=true doesn't affect a user who already has a registered MAC" {
+  CYFERIO_CFG[mac_required]=true
+  db_user_get() { [[ "$1" == "dave" ]] && echo "3|dave|active||2026-01-01 00:00:00|2026-01-01 00:00:00"; }
+  db_mac_list() { printf 'AA:BB:CC:DD:EE:05|2026-01-01 00:00:00\n'; }
+  run mac_check_connection "dave" "aa:bb:cc:dd:ee:05"
+  [ "$status" -eq 0 ]
+  [[ "$output" == "ACCEPT mac_match" ]]
+}
+
 @test "mac_check_connection accepts on an exact MAC match" {
   db_user_get() { [[ "$1" == "dave" ]] && echo "3|dave|active||2026-01-01 00:00:00|2026-01-01 00:00:00"; }
   db_mac_list() { printf 'AA:BB:CC:DD:EE:05|2026-01-01 00:00:00\n'; }

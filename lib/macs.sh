@@ -306,9 +306,23 @@ mac_check_connection() {
     registered_count="$(wc -l <<<"${rows}")"
   fi
 
-  # No MAC ever registered for this user — nothing to enforce yet
-  # (matches mac_add's own "no restriction until you add one" model).
+  # No MAC ever registered for this user — nothing to enforce yet by
+  # default (matches mac_add's own "no restriction until you add one"
+  # model), UNLESS mac_required=true makes registration itself
+  # mandatory. This is deliberately a separate setting from
+  # mac_enforcement_mode below, not folded into "strict" — strict/
+  # permissive only ever governed what happens to an ALREADY-registered
+  # user whose client fails to report a MAC; redefining "strict" to
+  # also reject the zero-MACs case would have silently broken any
+  # existing deployment relying on today's opt-in-per-user behavior the
+  # moment they upgraded, with no config change of their own.
   if [[ "${registered_count}" -eq 0 ]]; then
+    if [[ "$(config_get mac_required)" == "true" ]]; then
+      reason="no_mac_registered"
+      db_audit_log "auth.mac_reject" "${common_name}" "$(jq -nc --arg reason "${reason}" '{reason:$reason}')" 2>/dev/null || true
+      echo "REJECT ${reason}"
+      return 1
+    fi
     reason="no_mac_policy"
     db_audit_log "auth.mac_accept" "${common_name}" "$(jq -nc --arg reason "${reason}" '{reason:$reason}')" 2>/dev/null || true
     echo "ACCEPT ${reason}"

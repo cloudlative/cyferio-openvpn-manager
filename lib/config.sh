@@ -26,6 +26,7 @@ declare -gA CYFERIO_CFG=(
   [vpn_subnet_mask]=255.255.255.0
   [vpn_public_endpoint]=""
   [mac_enforcement_mode]=strict
+  [mac_required]=false
   [default_output_format]=table
 )
 

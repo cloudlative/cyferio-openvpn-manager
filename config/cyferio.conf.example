@@ -22,10 +22,21 @@ vpn_subnet_mask=255.255.255.0
 vpn_public_endpoint=
 
 # MAC enforcement mode: strict | permissive
-# strict     — reject connections with no registered/matching MAC once the
-#              user has at least one MAC on file (default)
-# permissive — allow and log, useful during initial rollout
+# Only applies to a user who already has at least one MAC registered —
+# governs what happens if their connecting client fails to report a MAC
+# at all (not a mismatch, an absence):
+# strict     — reject the connection (default)
+# permissive — allow it anyway, but still log it, useful during initial
+#              rollout before every client is confirmed to report peer-info
 mac_enforcement_mode=strict
+
+# Require every user to have at least one MAC registered before they can
+# connect at all: true | false (default false — MAC binding is opt-in
+# per user; a user with zero MACs registered connects unrestricted from
+# any device). Set true to make registration itself mandatory. This is
+# independent of mac_enforcement_mode above, which only governs
+# already-registered users whose client doesn't report a MAC.
+mac_required=false
 
 # Default output format for reporting commands: table | json | plain
 default_output_format=table

@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`mac_required` config key** — makes MAC registration itself
+  mandatory: a user with zero MACs registered is rejected outright
+  (`no_mac_registered`) instead of connecting unrestricted. Defaults
+  `false` (today's opt-in-per-user behavior, unchanged). Deliberately a
+  separate key from `mac_enforcement_mode`, not a new value of it —
+  that setting only ever governed an already-registered user's
+  fallback behavior when their client fails to report a MAC; folding
+  the zero-MACs case into "strict" would have silently changed what an
+  existing deployment's `strict` setting does on upgrade. See
+  [docs/architecture/04-mac-validation.md](docs/architecture/04-mac-validation.md).
 
 ## [1.1.0] - 2026-09-05
 
