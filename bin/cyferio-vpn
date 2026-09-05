@@ -20,7 +20,8 @@ _resolve_self() {
 BIN_DIR="$(_resolve_self)"
 CYFERIO_ROOT_DIR="$(cd -P "${BIN_DIR}/.." >/dev/null 2>&1 && pwd)"
 LIB_DIR="${CYFERIO_ROOT_DIR}/lib"
-export CYFERIO_ROOT_DIR
+CYFERIO_SELF_PATH="${BIN_DIR}/cyferio-vpn"
+export CYFERIO_ROOT_DIR CYFERIO_SELF_PATH
 
 if [[ ! -d "${LIB_DIR}" ]]; then
   echo "cyferio-vpn: cannot find lib/ next to this script (looked in ${LIB_DIR})" >&2

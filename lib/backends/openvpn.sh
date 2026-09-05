@@ -189,12 +189,16 @@ ovpn_install_hooks() {
   chmod 0660 "${CYFERIO_LOG_DIR}/cyferio.log"
 
   # The hooks invoke `cyferio-vpn internal mac-check`/`disconnect-log`
-  # themselves (Phase 7) — bake in the real path to this checkout's own
-  # bin/cyferio-vpn (CYFERIO_ROOT_DIR is set by bin/cyferio-vpn to
-  # wherever it's actually running from, dev-in-place or installed, so
-  # this is always correct without guessing $PATH at hook-execution time
-  # — the hook runs as `nobody`, which may not even share root's PATH).
-  local cyferio_bin="${CYFERIO_ROOT_DIR}/bin/cyferio-vpn"
+  # themselves (Phase 7) — bake in the real path to the running binary.
+  # CYFERIO_SELF_PATH is set by the entry point (bin/cyferio-vpn, or the
+  # single-file dist/cyferio-vpn bundle's own bootstrap — Phase 13) to
+  # wherever it's actually running from, so this is always correct
+  # without guessing $PATH at hook-execution time — the hook runs as
+  # `nobody`, which may not even share root's PATH. Deliberately NOT
+  # CYFERIO_ROOT_DIR/bin/cyferio-vpn: in the bundled single-file build
+  # that directory is a temp staging tree cleaned up on exit, not a
+  # stable path to bake into an OpenVPN hook.
+  local cyferio_bin="${CYFERIO_SELF_PATH:?CYFERIO_SELF_PATH must be set by the entry point}"
   sed -e "s|__CYFERIO_BIN__|${cyferio_bin}|g" \
     "${template_dir}/client-connect.sh.tmpl" >"${hooks_dir}/client-connect.sh.new"
   sed -e "s|__CYFERIO_BIN__|${cyferio_bin}|g" \

@@ -1,0 +1,3 @@
+# dist/cyferio-vpn is a generated build artifact (scripts/build-dist.sh);
+# the source of truth stays lib/*.sh. Regenerate, don't hand-edit.
+/dist/

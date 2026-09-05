@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Single-file distribution** — `scripts/build-dist.sh` generates
+  `dist/cyferio-vpn`, a single self-contained file bundling every
+  `lib/*.sh` module plus the config/template/migration assets normally
+  read from the checkout, so it can be copied straight to
+  `/usr/local/bin/cyferio-vpn` with no sibling `lib/`, `config/`,
+  `templates/`, or `db/` directory required. See
+  [docs/architecture/11-single-file-distribution.md](docs/architecture/11-single-file-distribution.md).
 
 ## [1.0.0] - 2026-09-05
 

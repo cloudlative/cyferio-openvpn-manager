@@ -30,6 +30,10 @@ cyferio-openvpn-manager/
 │   ├── client.ovpn.tmpl            # client profile template (push-peer-info, etc.)
 │   ├── client-connect.sh.tmpl      # MAC enforcement hook
 │   └── client-disconnect.sh.tmpl
+├── scripts/
+│   └── build-dist.sh               # generates dist/cyferio-vpn — see 11-single-file-distribution.md
+├── dist/
+│   └── cyferio-vpn                 # GENERATED single-file bundle — never hand-edit, gitignored
 ├── tests/
 │   ├── unit/                       # bats-core, one *.bats per lib/*.sh
 │   ├── integration/                # full install/uninstall/user-lifecycle on a VM

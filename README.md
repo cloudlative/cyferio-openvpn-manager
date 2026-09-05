@@ -12,6 +12,24 @@ Designed to grow to WireGuard, IPSec, and OpenConnect without a redesign — see
 
 ## Quick start
 
+**Single file, no checkout needed** — build (or grab a released)
+`dist/cyferio-vpn` and drop it anywhere on your `PATH`:
+
+```bash
+sudo ./scripts/build-dist.sh          # produces dist/cyferio-vpn
+sudo cp dist/cyferio-vpn /usr/local/bin/cyferio-vpn
+sudo cyferio-vpn install
+sudo cyferio-vpn user add alice
+sudo cyferio-vpn profile export alice
+```
+
+`dist/cyferio-vpn` is a generated build artifact — see
+[docs/architecture/11-single-file-distribution.md](docs/architecture/11-single-file-distribution.md)
+for how it bundles every module and asset into one file with no sibling
+`lib/`, `config/`, or `templates/` directory required.
+
+**Or run in place from this checkout**, e.g. for development:
+
 ```bash
 cd cyferio-openvpn-manager   # this checkout
 sudo ./bin/cyferio-vpn install
@@ -19,10 +37,10 @@ sudo ./bin/cyferio-vpn user add alice
 sudo ./bin/cyferio-vpn profile export alice
 ```
 
-Or launch the menu-driven interface instead of the CLI:
+Either way, launch the menu-driven interface instead of the CLI with:
 
 ```bash
-sudo ./bin/cyferio-vpn --interactive
+sudo cyferio-vpn --interactive
 ```
 
 ## Command surface
@@ -73,6 +91,7 @@ report` and `status` additionally support `--plain`.
 - [Backup & restore](docs/architecture/08-backup-restore.md)
 - [Security review & threat model](docs/architecture/09-security-review.md)
 - [Testing strategy](docs/architecture/10-testing-strategy.md)
+- [Single-file distribution](docs/architecture/11-single-file-distribution.md)
 
 See also [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow
 and [SECURITY.md](SECURITY.md) for the security posture summary and how
