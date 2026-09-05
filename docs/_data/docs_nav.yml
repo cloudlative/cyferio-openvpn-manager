@@ -1,0 +1,27 @@
+# Reading order for the architecture docs' prev/next footer pager
+# (docs/_layouts/doc.html). Keep in sync with docs/architecture/*.md —
+# each slug must match a file's basename (without .md).
+- slug: 00-overview
+  title: "00 — Architecture Overview"
+- slug: 01-directory-structure
+  title: "01 — Directory Structure"
+- slug: 02-database-schema
+  title: "02 — Database Schema"
+- slug: 03-openvpn-integration
+  title: "03 — OpenVPN Integration & PKI Lifecycle"
+- slug: 04-mac-validation
+  title: "04 — MAC Address Validation"
+- slug: 05-cloud-detection
+  title: "05 — Cloud Provider Detection"
+- slug: 06-networking-validation
+  title: "06 — Networking Validation"
+- slug: 07-logging
+  title: "07 — Logging"
+- slug: 08-backup-restore
+  title: "08 — Backup & Restore"
+- slug: 09-security-review
+  title: "09 — Security Review & Threat Model"
+- slug: 10-testing-strategy
+  title: "10 — Testing Strategy"
+- slug: 11-single-file-distribution
+  title: "11 — Single-File Distribution"

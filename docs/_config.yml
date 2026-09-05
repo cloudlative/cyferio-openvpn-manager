@@ -23,3 +23,13 @@ header_pages:
   - architecture/03-openvpn-integration.md
   - architecture/09-security-review.md
   - architecture/11-single-file-distribution.md
+
+# doc layout (docs/_layouts/doc.html) adds the prev/next architecture-
+# docs pager; applied by path scope here so no per-file front matter
+# edit is needed across all 12 docs.
+defaults:
+  - scope:
+      path: "architecture"
+      type: "pages"
+    values:
+      layout: doc

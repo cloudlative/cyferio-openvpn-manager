@@ -1,0 +1,71 @@
+---
+# Front matter required so Jekyll processes this as Sass rather than a
+# static asset — this is the documented way to extend a gem-based
+# theme's stylesheet (@import pulls in minima's own main.scss first,
+# then these rules layer on top).
+---
+@import "minima";
+
+// --- header nav: the four header_pages titles are full doc titles,
+// long enough that the theme's default float-right single-line nav
+// crowds them together. Let them wrap onto their own lines instead of
+// squeezing horizontally, and give the " · " separator (see the
+// _includes/header.html override) some breathing room.
+.site-nav {
+  float: none;
+  display: block;
+  line-height: 1.6;
+  padding-top: 6px;
+}
+
+.site-nav .trigger {
+  display: block;
+}
+
+.site-nav .page-link {
+  display: inline;
+  margin-right: 0;
+}
+
+.site-nav .page-link-sep {
+  color: $grey-color-light;
+  padding: 0 2px;
+}
+
+@media screen and (max-width: 600px) {
+  .site-nav .page-link-sep {
+    display: none; // the mobile menu already stacks links one per line
+  }
+}
+
+// --- architecture-doc prev/next footer pager (docs/_layouts/doc.html) ---
+.docs-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid $grey-color-light;
+  font-size: 15px;
+}
+
+.docs-pager-prev {
+  text-align: left;
+}
+
+.docs-pager-next {
+  text-align: right;
+  margin-left: auto;
+}
+
+@media screen and (max-width: 600px) {
+  .docs-pager {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .docs-pager-next {
+    margin-left: 0;
+    text-align: left;
+  }
+}

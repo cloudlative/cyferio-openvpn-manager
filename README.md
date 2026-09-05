@@ -9,6 +9,7 @@
 
 <p align="center">
   <a href="https://cyferio.com">cyferio.com</a> ·
+  <a href="https://cloudlative.github.io/cyferio-openvpn-manager/">Docs site</a> ·
   <a href="https://github.com/cloudlative/cyferio-openvpn-manager/releases/latest">Latest release</a> ·
   <a href="LICENSE">MIT License</a>
 </p>
@@ -106,6 +107,8 @@ failure (an offline box never makes `version` itself look broken);
 - `whiptail` (optional — `--interactive` falls back to a plain prompt without it)
 
 ## Documentation
+
+Also browsable as a website: **[cloudlative.github.io/cyferio-openvpn-manager](https://cloudlative.github.io/cyferio-openvpn-manager/)**.
 
 - [Architecture overview](docs/architecture/00-overview.md)
 - [Directory structure](docs/architecture/01-directory-structure.md)

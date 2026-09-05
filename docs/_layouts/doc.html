@@ -1,0 +1,42 @@
+---
+layout: default
+---
+<article class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">{{ page.title | escape }}</h1>
+  </header>
+
+  <div class="post-content">
+    {{ content }}
+  </div>
+
+</article>
+
+{%- assign nav = site.data.docs_nav -%}
+{%- assign current_slug = page.path | split: "/" | last | remove: ".md" -%}
+{%- assign current_index = -1 -%}
+{%- for item in nav -%}
+  {%- if item.slug == current_slug -%}
+    {%- assign current_index = forloop.index0 -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- if current_index > -1 -%}
+  {%- assign prev_index = current_index | minus: 1 -%}
+  {%- assign next_index = current_index | plus: 1 -%}
+  <nav class="docs-pager" aria-label="Architecture docs pagination">
+    <span class="docs-pager-prev">
+      {%- if prev_index >= 0 -%}
+        {%- assign prev = nav[prev_index] -%}
+        <a href="{{ site.baseurl }}/architecture/{{ prev.slug }}/">&larr; {{ prev.title }}</a>
+      {%- endif -%}
+    </span>
+    <span class="docs-pager-next">
+      {%- if next_index < nav.size -%}
+        {%- assign next = nav[next_index] -%}
+        <a href="{{ site.baseurl }}/architecture/{{ next.slug }}/">{{ next.title }} &rarr;</a>
+      {%- endif -%}
+    </span>
+  </nav>
+{%- endif -%}
