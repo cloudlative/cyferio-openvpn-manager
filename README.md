@@ -18,7 +18,7 @@
 
 Built for home labs, SMBs, enterprises, MSPs, resellers, and dedicated customer deployments.
 
-> **Status: v1.1.0.** Every command in the spec's command surface is implemented and verified end-to-end on real disposable cloud VMs — see [CHANGELOG.md](CHANGELOG.md) for what's shipped, including this release's known limitations.
+> **Status: v1.2.0.** Every command in the spec's command surface is implemented and verified end-to-end on real disposable cloud VMs — see [CHANGELOG.md](CHANGELOG.md) for what's shipped, including this release's known limitations.
 
 ## What this is
 

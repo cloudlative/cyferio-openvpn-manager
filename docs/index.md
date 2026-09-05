@@ -10,7 +10,7 @@ permalink: /
 ---
 
 <div class="hero">
-  <span class="hero-eyebrow">v1.1.0 &middot; MIT licensed</span>
+  <span class="hero-eyebrow">v1.2.0 &middot; MIT licensed</span>
   <h1>Cyferio OpenVPN Manager</h1>
   <p class="hero-tagline">A production-grade, bash-only OpenVPN deployment
   and management toolkit — no web UI, no browser dependency, no account.</p>

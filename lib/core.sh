@@ -10,7 +10,7 @@ __CYFERIO_CORE_LOADED=1
 
 set -Eeuo pipefail
 
-CYFERIO_VERSION="1.1.0"
+CYFERIO_VERSION="1.2.0"
 CYFERIO_NAME="Cyferio OpenVPN Manager"
 
 # Runtime paths — overridable via env so tests/dev runs never touch real
